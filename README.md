@@ -1,0 +1,1 @@
+This web application is a comprehensive php script of a Crypto Faucet and URL Shortener Directory designed to help users discover legitimate crypto earning opportunities while providing robust tools for administrators to manage content and ensure platform security.

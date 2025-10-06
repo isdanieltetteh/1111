@@ -1,0 +1,137 @@
+[03-Oct-2025 09:53:32 UTC] PHP Warning:  Undefined array key "five_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 09:53:32 UTC] PHP Warning:  Undefined array key "four_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 09:53:32 UTC] PHP Warning:  Undefined array key "three_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 09:53:32 UTC] PHP Warning:  Undefined array key "two_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 09:53:32 UTC] PHP Warning:  Undefined array key "one_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 09:56:25 UTC] PHP Warning:  Undefined array key "five_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 09:56:25 UTC] PHP Warning:  Undefined array key "four_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 09:56:25 UTC] PHP Warning:  Undefined array key "three_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 09:56:25 UTC] PHP Warning:  Undefined array key "two_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 09:56:25 UTC] PHP Warning:  Undefined array key "one_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 10:04:08 UTC] PHP Warning:  Undefined array key "five_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 10:04:08 UTC] PHP Warning:  Undefined array key "four_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 10:04:08 UTC] PHP Warning:  Undefined array key "three_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 10:04:08 UTC] PHP Warning:  Undefined array key "two_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 10:04:08 UTC] PHP Warning:  Undefined array key "one_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 10:10:12 UTC] PHP Warning:  Undefined array key "five_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 10:10:12 UTC] PHP Warning:  Undefined array key "four_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 10:10:12 UTC] PHP Warning:  Undefined array key "three_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 10:10:12 UTC] PHP Warning:  Undefined array key "two_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[03-Oct-2025 10:10:12 UTC] PHP Warning:  Undefined array key "one_star_count" in /home/mwqnrvfg/faucetguard.live/review.php on line 2316
+[05-Oct-2025 11:06:59 UTC] PHP Warning:  Undefined variable $auth in /home/mwqnrvfg/faucetguard.live/includes/header.php on line 40
+[05-Oct-2025 11:06:59 UTC] PHP Fatal error:  Uncaught Error: Call to a member function isLoggedIn() on null in /home/mwqnrvfg/faucetguard.live/includes/header.php:40
+Stack trace:
+#0 /home/mwqnrvfg/faucetguard.live/redirect.php(86): include()
+#1 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/includes/header.php on line 40
+[05-Oct-2025 16:55:43 UTC] PHP Warning:  Undefined variable $auth in /home/mwqnrvfg/faucetguard.live/includes/header.php on line 41
+[05-Oct-2025 16:55:43 UTC] PHP Fatal error:  Uncaught Error: Call to a member function isLoggedIn() on null in /home/mwqnrvfg/faucetguard.live/includes/header.php:41
+Stack trace:
+#0 /home/mwqnrvfg/faucetguard.live/redirect.php(86): include()
+#1 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/includes/header.php on line 41
+[05-Oct-2025 17:02:12 UTC] PHP Warning:  Undefined variable $auth in /home/mwqnrvfg/faucetguard.live/includes/header.php on line 41
+[05-Oct-2025 17:02:12 UTC] PHP Fatal error:  Uncaught Error: Call to a member function isLoggedIn() on null in /home/mwqnrvfg/faucetguard.live/includes/header.php:41
+Stack trace:
+#0 /home/mwqnrvfg/faucetguard.live/redirect.php(86): include()
+#1 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/includes/header.php on line 41
+[05-Oct-2025 17:08:09 UTC] PHP Warning:  Undefined variable $auth in /home/mwqnrvfg/faucetguard.live/includes/header.php on line 58
+[05-Oct-2025 17:08:09 UTC] PHP Fatal error:  Uncaught Error: Call to a member function isLoggedIn() on null in /home/mwqnrvfg/faucetguard.live/includes/header.php:58
+Stack trace:
+#0 /home/mwqnrvfg/faucetguard.live/redirect.php(86): include()
+#1 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/includes/header.php on line 58
+[05-Oct-2025 17:57:47 UTC] PHP Parse error:  syntax error, unexpected token "endif", expecting end of file in /home/mwqnrvfg/faucetguard.live/index.php on line 263
+[05-Oct-2025 19:04:09 UTC] IP registration logging failed: SQLSTATE[23000]: Integrity constraint violation: 1048 Column 'user_id' cannot be null
+[05-Oct-2025 20:32:29 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/review.php:522
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/review.php on line 522
+[05-Oct-2025 20:32:37 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/review.php:522
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/review.php on line 522
+[05-Oct-2025 20:33:56 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/review.php:520
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/review.php on line 520
+[05-Oct-2025 21:46:25 UTC] PHP Warning:  Undefined variable $boosted_sites in /home/mwqnrvfg/faucetguard.live/index.php on line 241
+[05-Oct-2025 21:46:25 UTC] PHP Warning:  foreach() argument must be of type array|object, null given in /home/mwqnrvfg/faucetguard.live/index.php on line 241
+[05-Oct-2025 21:50:51 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/index.php:207
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/index.php on line 207
+[05-Oct-2025 21:51:04 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/index.php:207
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/index.php on line 207
+[05-Oct-2025 21:56:49 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/index.php:207
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/index.php on line 207
+[05-Oct-2025 21:56:55 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/index.php:207
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/index.php on line 207
+[05-Oct-2025 22:13:22 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/index.php:207
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/index.php on line 207
+[05-Oct-2025 22:15:19 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/index.php:207
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/index.php on line 207
+[05-Oct-2025 22:17:54 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function render_stars() in /home/mwqnrvfg/faucetguard.live/index.php:264
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/index.php on line 264
+[05-Oct-2025 22:27:25 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/index.php:207
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/index.php on line 207
+[05-Oct-2025 22:29:04 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/index.php:207
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/index.php on line 207
+[05-Oct-2025 22:30:22 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function renderStars() in /home/mwqnrvfg/faucetguard.live/index.php:207
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/index.php on line 207
+[05-Oct-2025 22:36:02 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function truncateText() in /home/mwqnrvfg/faucetguard.live/rankings.php:273
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/rankings.php on line 273
+[05-Oct-2025 23:16:01 UTC] Update user badges error: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'mwqnrvfg_faucetguardpop.reports' doesn't exist
+[05-Oct-2025 23:17:26 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function timeRemaining() in /home/mwqnrvfg/faucetguard.live/my-ads.php:263
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 263
+[05-Oct-2025 23:19:11 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function timeRemaining() in /home/mwqnrvfg/faucetguard.live/my-ads.php:263
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 263
+[05-Oct-2025 23:20:29 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function timeRemaining() in /home/mwqnrvfg/faucetguard.live/my-ads.php:263
+Stack trace:
+#0 {main}
+  thrown in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 263
+[05-Oct-2025 23:22:40 UTC] PHP Warning:  Undefined array key "width" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:22:40 UTC] PHP Warning:  Undefined array key "height" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:22:40 UTC] PHP Warning:  Undefined array key "width" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 343
+[05-Oct-2025 23:22:40 UTC] PHP Warning:  Undefined array key "height" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 343
+[05-Oct-2025 23:22:40 UTC] PHP Warning:  Undefined array key "width" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:22:40 UTC] PHP Warning:  Undefined array key "height" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:22:40 UTC] PHP Warning:  Undefined array key "width" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 343
+[05-Oct-2025 23:22:40 UTC] PHP Warning:  Undefined array key "height" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 343
+[05-Oct-2025 23:22:40 UTC] PHP Warning:  Undefined array key "width" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:22:40 UTC] PHP Warning:  Undefined array key "height" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:25:24 UTC] PHP Warning:  Undefined array key "width" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:25:24 UTC] PHP Warning:  Undefined array key "height" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:25:24 UTC] PHP Warning:  Undefined array key "width" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 343
+[05-Oct-2025 23:25:24 UTC] PHP Warning:  Undefined array key "height" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 343
+[05-Oct-2025 23:25:24 UTC] PHP Warning:  Undefined array key "width" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:25:24 UTC] PHP Warning:  Undefined array key "height" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:25:24 UTC] PHP Warning:  Undefined array key "width" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 343
+[05-Oct-2025 23:25:24 UTC] PHP Warning:  Undefined array key "height" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 343
+[05-Oct-2025 23:25:24 UTC] PHP Warning:  Undefined array key "width" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282
+[05-Oct-2025 23:25:24 UTC] PHP Warning:  Undefined array key "height" in /home/mwqnrvfg/faucetguard.live/my-ads.php on line 282

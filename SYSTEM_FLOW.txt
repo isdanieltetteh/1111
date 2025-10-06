@@ -1,0 +1,318 @@
+===================================================================================
+                    ADVERTISEMENT SYSTEM - COMPLETE FLOW DIAGRAM
+===================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              USER FLOW                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+1. USER VISITS BUY ADS PAGE
+   ↓
+   /buy-ads.php
+   ↓
+   [Select Ad Type: Banner or Text]
+   ↓
+   [Select Duration: 1, 3, 7, 10, or 30 days]
+   ↓
+   [Choose Visibility: Standard or Premium]
+   ↓
+   [Select Ad Space from dropdown]
+   - Shows all enabled ad spaces
+   - Displays dimensions and price multiplier
+   ↓
+   [Enter Ad Content]
+   - Banner: Upload image → LIVE PREVIEW shows uploaded image
+   - Text: Type headline & description → LIVE PREVIEW updates in real-time
+   ↓
+   [Review Pricing]
+   - Base Price (from ad_pricing table)
+   - × Space Multiplier (from ad_spaces.base_price_multiplier)
+   - × Premium Multiplier (if premium selected)
+   = Total Cost
+   ↓
+   [Purchase with Credits]
+   - Checks user balance
+   - Deducts credits
+   - Creates ad record with status='pending'
+   ↓
+   [Awaits Admin Approval]
+
+
+2. ADMIN APPROVAL
+   ↓
+   Admin reviews ad in /admin/ads.php
+   ↓
+   Approves → status='active', start_date=NOW(), end_date=NOW()+duration
+   Rejects → status='rejected'
+
+
+3. AD DISPLAY ON PAGES
+   ↓
+   Page includes: <?php displayAdSpace('space_id'); ?>
+   ↓
+   System checks database:
+
+   ┌─────────────────────────────────────────────┐
+   │ Query: Find active ads for this space      │
+   │ WHERE:                                      │
+   │   - status = 'active'                       │
+   │   - start_date <= NOW()                     │
+   │   - end_date >= NOW()                       │
+   │   - ad_space_id matches space               │
+   │   - space is_enabled = 1                    │
+   └─────────────────────────────────────────────┘
+
+   IF AD EXISTS:
+      ↓
+      Display ad (banner image or text)
+      Track impression (impression_count++)
+      Log to ad_impressions table
+
+   ELSE:
+      ↓
+      Display placeholder:
+      ┌────────────────────────────────┐
+      │  📢 Advertisement Space        │
+      │  Available                     │
+      │  728x90                        │
+      │  [Advertise Here Button]       │
+      └────────────────────────────────┘
+
+
+4. CLICK TRACKING
+   ↓
+   User clicks ad
+   ↓
+   Redirects to /ad-click.php?id=<ad_id>
+   ↓
+   Tracks click:
+   - Increment click_count in user_advertisements
+   - Log to ad_clicks table (IP, user_agent, referrer)
+   ↓
+   Redirect to target_url
+
+===================================================================================
+                         ADMIN CONTROL PANEL FLOW
+===================================================================================
+
+/admin/ad-control.php
+   ↓
+┌───────────────────────────────────────────────────────────────────┐
+│                    DASHBOARD STATISTICS                           │
+│  ┌──────────────┬──────────────┬──────────────┬──────────────┐  │
+│  │ Total Spaces │ Enabled      │ Active Ads   │ Impressions  │  │
+│  │     24       │     24       │      3       │   15,234     │  │
+│  └──────────────┴──────────────┴──────────────┴──────────────┘  │
+│  ┌──────────────┬──────────────┐                                 │
+│  │   Clicks     │   Revenue    │                                 │
+│  │     892      │  $1,245.50   │                                 │
+│  └──────────────┴──────────────┘                                 │
+└───────────────────────────────────────────────────────────────────┘
+   ↓
+┌───────────────────────────────────────────────────────────────────┐
+│                    AD SPACES TABLE                                │
+│  ID  | Name             | Impress. | Clicks | CTR   | Revenue   │
+│  1   | Homepage Top     | 5,234    | 234    | 4.47% | $450.00   │
+│  2   | Homepage Side #1 | 3,456    | 178    | 5.15% | $320.00   │
+│  ...                                                               │
+│                                                                    │
+│  Actions per space:                                               │
+│  [Enable/Disable] [Pricing] [Size]                               │
+└───────────────────────────────────────────────────────────────────┘
+
+ADMIN ACTIONS:
+
+1. ENABLE/DISABLE SPACE
+   Click button → Update ad_spaces.is_enabled
+   - Disabled spaces don't show in user purchase dropdown
+   - Existing ads still run until expiration
+
+2. UPDATE PRICING
+   Click "Pricing" → Modal opens
+   Set multiplier (e.g., 2.0)
+   - Homepage top = 2.0x (premium location)
+   - Sidebar = 1.5x
+   - Bottom = 1.0x (standard)
+
+3. UPDATE DIMENSIONS
+   Click "Size" → Modal opens
+   Set width & height
+   - Shown to users during purchase
+   - Displayed in placeholder
+
+===================================================================================
+                         DATABASE STRUCTURE
+===================================================================================
+
+ad_spaces (24 records - pre-configured)
+┌──────────────────────────────────────────────────────────────────┐
+│ id | space_id            | space_name        | base_price_mult. │
+│  1 | index_top_banner    | Homepage Top      | 2.00             │
+│  2 | index_sidebar_1     | Homepage Side #1  | 1.50             │
+│  3 | sites_top_banner    | Sites Top         | 1.80             │
+│ ...                                                               │
+└──────────────────────────────────────────────────────────────────┘
+         ↑
+         │ (ad_space_id foreign key)
+         │
+user_advertisements
+┌──────────────────────────────────────────────────────────────────┐
+│ id | user_id | ad_type | ad_space_id | status  | start/end     │
+│  1 |   42    | banner  |      1      | active  | 2025-10-01... │
+│  2 |   53    | text    |      3      | pending | NULL          │
+└──────────────────────────────────────────────────────────────────┘
+         │
+         ├─→ ad_impressions (tracks every view)
+         └─→ ad_clicks (tracks every click)
+
+ad_pricing (10 records)
+┌──────────────────────────────────────────────────────────────────┐
+│ ad_type | duration_days | base_price | premium_multiplier       │
+│ banner  |      1        |   5.00     |        2.00              │
+│ banner  |      7        |  25.00     |        2.00              │
+│ text    |      7        |  15.00     |        2.00              │
+└──────────────────────────────────────────────────────────────────┘
+
+===================================================================================
+                         PRICE CALCULATION EXAMPLE
+===================================================================================
+
+USER SELECTS:
+- Ad Type: Text
+- Duration: 7 days
+- Ad Space: Homepage Top Banner (multiplier = 2.0)
+- Visibility: Premium
+
+CALCULATION:
+Step 1: Get base price from ad_pricing
+  Text ad, 7 days = $15.00
+
+Step 2: Apply space multiplier
+  $15.00 × 2.0 = $30.00
+
+Step 3: Apply premium multiplier (if premium selected)
+  $30.00 × 2.0 = $60.00
+
+TOTAL COST: $60.00
+
+Shown to user as:
+┌─────────────────────────────┐
+│ Cost Summary                │
+│ Base Price:      $30.00     │
+│ Premium Upgrade: $30.00     │
+│ ─────────────────────────   │
+│ Total Cost:      $60.00     │
+└─────────────────────────────┘
+
+===================================================================================
+                         KEY FILES & FUNCTIONS
+===================================================================================
+
+FRONTEND (User-facing):
+  /buy-ads.php
+  - Main purchase interface
+  - Live preview functionality
+  - Price calculation display
+
+  /includes/ad-widget.php
+  ├─ displayAdSpace($space_id)     [NEW - Primary function]
+  │  - Shows active ad or placeholder
+  │  - Handles impression tracking
+  │  - Renders CTA button if no ad
+  │
+  └─ renderAdPlaceholder($space)   [NEW]
+     - Creates attractive placeholder
+     - Links to purchase page
+
+BACKEND (Core Logic):
+  /includes/ad-manager.php
+  ├─ getAdForSpace($space_id)      [NEW]
+  │  - Retrieves active ad for specific space
+  │  - Implements rotation algorithm
+  │
+  ├─ renderBannerAd($ad)
+  │  - Generates HTML for banner ads
+  │
+  └─ renderTextAd($ad)
+     - Generates HTML for text ads
+
+ADMIN:
+  /admin/ad-control.php            [NEW - Complete Panel]
+  - Dashboard statistics
+  - Enable/disable spaces
+  - Update pricing & dimensions
+  - Performance metrics per space
+
+AJAX:
+  /ajax/get-ad.php
+  - Returns ad data for dynamic loading
+
+  /ad-click.php
+  - Handles click tracking
+  - Redirects to target URL
+
+===================================================================================
+                         INTEGRATION POINTS
+===================================================================================
+
+Add to ANY page:
+
+<?php require_once 'includes/ad-widget.php'; ?>
+
+Then insert ads:
+
+<?php displayAdSpace('index_top_banner'); ?>      ← Homepage top
+<?php displayAdSpace('sites_between_results_1'); ?> ← Between listings
+<?php displayAdSpace('dashboard_sidebar'); ?>      ← Dashboard side
+
+That's it! System handles:
+✓ Finding active ads
+✓ Displaying them
+✓ Tracking impressions
+✓ Tracking clicks
+✓ Showing placeholders when empty
+✓ Fair rotation
+✓ Performance metrics
+
+===================================================================================
+                         ROTATION ALGORITHM
+===================================================================================
+
+When displayAdSpace() is called:
+
+1. Query database for matching ads
+   WHERE:
+     - ad_space_id matches
+     - status = 'active'
+     - start_date <= NOW()
+     - end_date >= NOW()
+     - space is_enabled = 1
+
+2. Order results by:
+   Priority 1: visibility_level (premium first)
+   Priority 2: RAND() (random within priority group)
+
+3. LIMIT 1 (select first result)
+
+4. Track impression:
+   - Update user_advertisements.impression_count
+   - Insert into ad_impressions table
+
+5. Render ad HTML
+
+Result: Premium ads show more often, but fair rotation within each tier.
+
+===================================================================================
+                         SECURITY MEASURES
+===================================================================================
+
+✓ SQL Injection: All queries use prepared statements
+✓ XSS: All output escaped with htmlspecialchars()
+✓ CSRF: Form actions verified
+✓ File Upload: Image type validation, size limits
+✓ Authentication: Login required for purchases
+✓ Authorization: Admin-only for control panel
+✓ Credit Verification: Balance checked before purchase
+✓ Input Validation: All user input sanitized
+
+===================================================================================

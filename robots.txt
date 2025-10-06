@@ -1,0 +1,42 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: <?php echo SITE_URL; ?>/sitemap.php
+
+# Disallow admin areas
+Disallow: /admin/
+Disallow: /config/
+Disallow: /includes/
+Disallow: /ajax/
+Disallow: /cron/
+Disallow: /backups/
+
+# Disallow user-specific pages
+Disallow: /dashboard.php
+Disallow: /profile.php
+Disallow: /wallet.php
+Disallow: /login.php
+Disallow: /register.php
+Disallow: /logout.php
+
+# Disallow form processing pages
+Disallow: /submit-site.php
+Disallow: /buy-credits.php
+Disallow: /promote-sites.php
+
+# Allow important pages
+Allow: /sites.php
+Allow: /rankings.php
+Allow: /site-details.php
+Allow: /about.php
+Allow: /contact.php
+Allow: /faq.php
+Allow: /trust-safety.php
+Allow: /terms.php
+Allow: /privacy.php
+Allow: /help.php
+Allow: /widget.php
+
+# Crawl delay
+Crawl-delay: 1

@@ -1,0 +1,145 @@
+/* Ad Space Styling */
+.ad-space-container {
+  background: rgba(51, 65, 85, 0.6);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.ad-space-container:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.ad-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.ad-link {
+  display: block;
+  text-decoration: none;
+}
+
+.ad-banner-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  transition: transform 0.3s ease;
+}
+
+.ad-link:hover .ad-banner-image {
+  transform: scale(1.02);
+}
+
+.ad-text-content {
+  padding: 1rem;
+}
+
+.ad-text-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.ad-text-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin-bottom: 0.5rem;
+}
+
+.ad-text-description {
+  font-size: 1rem;
+  color: #94a3b8;
+  line-height: 1.6;
+}
+
+.ad-text-link:hover .ad-text-title {
+  color: #3b82f6;
+}
+
+/* Ad Placeholder Styling */
+.ad-placeholder {
+  border: 2px dashed rgba(148, 163, 184, 0.3);
+  background: rgba(30, 41, 59, 0.4);
+}
+
+.ad-placeholder:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.ad-placeholder-content {
+  padding: 2rem;
+}
+
+.ad-placeholder-content i {
+  font-size: 3rem;
+  color: #64748b;
+  margin-bottom: 1rem;
+}
+
+.ad-placeholder-content h4 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  margin-bottom: 0.5rem;
+}
+
+.ad-dimensions {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 1rem;
+}
+
+.ad-placeholder-text {
+  font-size: 1rem;
+  color: #94a3b8;
+  margin-bottom: 1.5rem;
+}
+
+/* Responsive Ad Spaces */
+@media (max-width: 768px) {
+  .ad-space-container {
+    padding: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .ad-banner-image {
+    max-width: 100%;
+  }
+
+  .ad-placeholder-content {
+    padding: 1.5rem;
+  }
+
+  .ad-placeholder-content i {
+    font-size: 2rem;
+  }
+}
+
+/* Sidebar Ad Spaces */
+.ad-space-sidebar {
+  margin: 1.5rem 0;
+}
+
+/* Between Results Ad Spaces */
+.ad-space-between {
+  margin: 2rem auto;
+  max-width: 468px;
+}
+
+/* Top/Bottom Banner Ad Spaces */
+.ad-space-banner {
+  max-width: 728px;
+  margin: 2rem auto;
+}
