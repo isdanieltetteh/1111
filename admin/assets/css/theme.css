@@ -310,6 +310,17 @@ body::before {
     opacity: 1;
 }
 
+.ad-slot {
+    border: 1px dashed var(--divider-color);
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(59, 130, 246, 0.05));
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 160px;
+}
+
 .metric-label {
     font-size: 0.75rem;
     text-transform: uppercase;
@@ -367,6 +378,11 @@ body::before {
 .metric-icon.warning {
     background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(249, 115, 22, 0.28));
     color: #f59e0b;
+}
+
+.metric-icon.danger {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.24), rgba(220, 38, 38, 0.32));
+    color: #ef4444;
 }
 
 .metric-footnote {
@@ -606,6 +622,10 @@ body::before {
 
 .status-indicator.danger {
     background: #ef4444;
+}
+
+.status-indicator.info {
+    background: #38bdf8;
 }
 
 .footer-bar {

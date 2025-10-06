@@ -317,187 +317,290 @@ $users_query = "SELECT u.*, l.name as level_name, l.badge_icon,
 $users_stmt = $db->prepare($users_query);
 $users_stmt->execute($params);
 $users = $users_stmt->fetchAll(PDO::FETCH_ASSOC);
+$displaying_users = count($users);
+
+$user_summary = [
+    'banned_users' => 0,
+    'moderators' => 0,
+    'admins' => 0,
+    'new_week' => 0,
+];
+
+try {
+    $user_summary_stmt = $db->query("SELECT
+        SUM(CASE WHEN is_banned = 1 THEN 1 ELSE 0 END) AS banned_users,
+        SUM(CASE WHEN is_moderator = 1 THEN 1 ELSE 0 END) AS moderators,
+        SUM(CASE WHEN is_admin = 1 THEN 1 ELSE 0 END) AS admins,
+        SUM(CASE WHEN created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS new_week
+    FROM users");
+
+    if ($user_summary_stmt) {
+        $fetched = $user_summary_stmt->fetch(PDO::FETCH_ASSOC);
+        if ($fetched) {
+            foreach ($user_summary as $key => $default) {
+                if (isset($fetched[$key]) && is_numeric($fetched[$key])) {
+                    $user_summary[$key] = (int) $fetched[$key];
+                }
+            }
+        }
+    }
+} catch (Exception $exception) {
+    // Ignore summary calculation errors to protect management flow.
+}
 
 $page_title = 'Users Management - Admin Panel';
 include 'includes/admin_header.php';
 ?>
 
 <div class="container-fluid">
-    <div class="row">
+    <div class="row g-0">
         <?php include 'includes/admin_sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Users Management</h1>
-            </div>
 
-            <?php if ($success_message): ?>
-                <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
-            <?php endif; ?>
-            
-            <?php if ($error_message): ?>
-                <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
-            <?php endif; ?>
-
-            <!-- Filters -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <form method="GET" class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Search Users</label>
-                            <input type="text" name="search" class="form-control" 
-                                   placeholder="Username or email..." 
-                                   value="<?php echo htmlspecialchars($search); ?>">
+        <main class="main-content-shell col-12 col-xl-10 ms-auto">
+            <div class="page-hero glass-card p-4 p-xl-5 mb-4 fade-in">
+                <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+                    <div>
+                        <h1 class="page-title mb-2">User Intelligence Hub</h1>
+                        <p class="page-subtitle mb-0">Supervise community health, privileges, and wallet balances in real time.</p>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="create-user.php" class="btn btn-primary px-4">
+                            <i class="fas fa-user-plus me-2"></i>New Admin User
+                        </a>
+                        <a href="security.php" class="btn btn-outline-light px-4">
+                            <i class="fas fa-shield-halved me-2"></i>Security Center
+                        </a>
+                    </div>
+                </div>
+                <div class="row g-4 mt-1">
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="metric-icon primary"><i class="fas fa-users"></i></span>
+                            <div>
+                                <div class="metric-label">Total accounts</div>
+                                <div class="metric-value"><?php echo number_format($total_users); ?></div>
+                                <span class="metric-trend text-muted small">Showing <?php echo number_format($displaying_users); ?> this view</span>
+                            </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Status</label>
-                            <select name="status" class="form-select">
-                                <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Users</option>
-                                <option value="active" <?php echo $status_filter === 'active' ? 'selected' : ''; ?>>Active Users</option>
-                                <option value="banned" <?php echo $status_filter === 'banned' ? 'selected' : ''; ?>>Banned Users</option>
-                                <option value="moderators" <?php echo $status_filter === 'moderators' ? 'selected' : ''; ?>>Moderators</option>
-                            </select>
+                    </div>
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="metric-icon success"><i class="fas fa-star"></i></span>
+                            <div>
+                                <div class="metric-label">New (7 days)</div>
+                                <div class="metric-value"><?php echo number_format((int) ($user_summary['new_week'] ?? 0)); ?></div>
+                                <span class="metric-trend text-muted small">Fresh explorers this week</span>
+                            </div>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="submit" class="btn btn-primary d-block">Filter</button>
+                    </div>
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="metric-icon danger"><i class="fas fa-user-slash"></i></span>
+                            <div>
+                                <div class="metric-label">Banned accounts</div>
+                                <div class="metric-value"><?php echo number_format((int) ($user_summary['banned_users'] ?? 0)); ?></div>
+                                <span class="metric-trend text-muted small">Escalations under watch</span>
+                            </div>
                         </div>
-                    </form>
+                    </div>
+                    <div class="col-12 col-md-6 col-xl-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <span class="metric-icon warning"><i class="fas fa-user-shield"></i></span>
+                            <div>
+                                <div class="metric-label">Moderators &amp; Admins</div>
+                                <div class="metric-value"><?php echo number_format((int) ($user_summary['moderators'] ?? 0) + (int) ($user_summary['admins'] ?? 0)); ?></div>
+                                <span class="metric-trend text-muted small">Guardians keeping the peace</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Users Table -->
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>User</th>
-                                    <th>Level</th>
-                                    <th>Reputation</th>
-                                    <th>Activity</th>
-                                    <th>Wallet</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($users as $user): ?>
-                                <tr>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <img src="../<?php echo htmlspecialchars($user['avatar']); ?>" 
-                                                 class="rounded-circle me-2" width="32" height="32">
-                                            <div>
-                                                <strong><?php echo htmlspecialchars($user['username']); ?></strong>
-                                                <br>
-                                                <small class="text-muted"><?php echo htmlspecialchars($user['email']); ?></small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <?php if ($user['level_name']): ?>
-                                            <span class="badge bg-primary">
-                                                <?php echo $user['badge_icon']; ?> <?php echo htmlspecialchars($user['level_name']); ?>
-                                            </span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <strong><?php echo number_format($user['reputation_points']); ?></strong> pts
-                                    </td>
-                                    <td>
-                                        <small>
-                                            <?php echo $user['total_submissions']; ?> sites<br>
-                                            <?php echo $user['total_reviews_written']; ?> reviews
-                                        </small>
-                                    </td>
-                                    <td>
-                                        $<?php echo number_format($user['credit_balance'], 4); ?>
-                                    </td>
-                                    <td>
-                                        <?php if ($user['is_banned']): ?>
-                                            <span class="badge bg-danger">Banned</span>
-                                            <?php if ($user['ban_reason']): ?>
-                                                <br><small class="text-muted"><?php echo htmlspecialchars($user['ban_reason']); ?></small>
-                                            <?php endif; ?>
-                                        <?php elseif ($user['is_admin']): ?>
-                                            <span class="badge bg-warning">Admin</span>
-                                        <?php elseif ($user['is_moderator']): ?>
-                                            <span class="badge bg-info">Moderator</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-success">Active</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group-vertical btn-group-sm">
-                                            <button class="btn btn-outline-primary btn-sm" 
-                                                    onclick="editUser(<?php echo htmlspecialchars(json_encode($user)); ?>)">
-                                                <i class="fas fa-edit"></i> Edit User
-                                            </button>
-                                            
-                                            <?php if (!$user['is_admin']): ?>
-                                                <?php if ($user['is_banned']): ?>
-                                                    <form method="POST" class="d-inline">
-                                                        <input type="hidden" name="action" value="unban">
-                                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                        <button type="submit" class="btn btn-success btn-sm">Unban</button>
-                                                    </form>
-                                                <?php else: ?>
-                                                    <button class="btn btn-danger btn-sm" 
-                                                            onclick="banUserWithReason(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')">
-                                                        Ban
-                                                    </button>
-                                                <?php endif; ?>
-                                                
-                                                <?php if ($user['is_moderator']): ?>
-                                                    <form method="POST" class="d-inline">
-                                                        <input type="hidden" name="action" value="remove_moderator">
-                                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                        <button type="submit" class="btn btn-warning btn-sm">Remove Mod</button>
-                                                    </form>
-                                                <?php else: ?>
-                                                    <form method="POST" class="d-inline">
-                                                        <input type="hidden" name="action" value="make_moderator">
-                                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                        <button type="submit" class="btn btn-info btn-sm">Make Mod</button>
-                                                    </form>
-                                                <?php endif; ?>
-                                                
-                                                <button class="btn btn-secondary btn-sm" 
-                                                        onclick="adjustPoints(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')">
-                                                    Adjust Points
-                                                </button>
-                                                
-                                                <button class="btn btn-outline-info btn-sm" 
-                                                        onclick="viewUserActivity(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')">
-                                                    <i class="fas fa-history"></i> Activity
-                                                </button>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+            <?php if ($success_message): ?>
+                <div class="glass-card page-alert alert alert-success fade-in mb-4" role="alert">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="alert-icon text-success"><i class="fas fa-circle-check"></i></span>
+                        <div>
+                            <h6 class="text-uppercase small fw-bold mb-1">Action completed</h6>
+                            <p class="mb-0"><?php echo htmlspecialchars($success_message); ?></p>
+                        </div>
                     </div>
+                </div>
+            <?php endif; ?>
 
-                    <!-- Pagination -->
-                    <?php if ($total_pages > 1): ?>
+            <?php if ($error_message): ?>
+                <div class="glass-card page-alert alert alert-danger fade-in mb-4" role="alert">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="alert-icon text-danger"><i class="fas fa-circle-exclamation"></i></span>
+                        <div>
+                            <h6 class="text-uppercase small fw-bold mb-1">Action required</h6>
+                            <p class="mb-0"><?php echo htmlspecialchars($error_message); ?></p>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <div class="glass-card p-4 mb-4 fade-in">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                    <div>
+                        <h2 class="h5 mb-1">Filter userbase</h2>
+                        <p class="text-muted small mb-0">Search identities, target bans, or spotlight moderators instantly.</p>
+                    </div>
+                    <a href="users.php" class="btn btn-outline-light btn-sm">
+                        <i class="fas fa-rotate"></i> Reset
+                    </a>
+                </div>
+                <form method="GET" class="row g-3 align-items-end">
+                    <div class="col-12 col-lg-4">
+                        <label class="form-label text-uppercase small fw-semibold">Search</label>
+                        <input type="text" name="search" class="form-control" placeholder="Username or email" value="<?php echo htmlspecialchars($search); ?>">
+                    </div>
+                    <div class="col-12 col-lg-4">
+                        <label class="form-label text-uppercase small fw-semibold">Status</label>
+                        <select name="status" class="form-select">
+                            <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All users</option>
+                            <option value="active" <?php echo $status_filter === 'active' ? 'selected' : ''; ?>>Active</option>
+                            <option value="banned" <?php echo $status_filter === 'banned' ? 'selected' : ''; ?>>Banned</option>
+                            <option value="moderators" <?php echo $status_filter === 'moderators' ? 'selected' : ''; ?>>Moderators</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-lg-4">
+                        <label class="form-label text-uppercase small fw-semibold">&nbsp;</label>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-filter me-2"></i>Apply filters
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="glass-card p-0 fade-in overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">User</th>
+                                <th scope="col">Level</th>
+                                <th scope="col">Reputation</th>
+                                <th scope="col">Engagement</th>
+                                <th scope="col">Wallet</th>
+                                <th scope="col">Status</th>
+                                <th scope="col" class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($users as $user): ?>
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <img src="../<?php echo htmlspecialchars($user['avatar']); ?>" alt="<?php echo htmlspecialchars($user['username']); ?>" class="avatar-circle">
+                                        <div>
+                                            <div class="fw-semibold d-flex align-items-center gap-2">
+                                                <?php echo htmlspecialchars($user['username']); ?>
+                                                <?php if ($user['is_admin']): ?>
+                                                    <span class="badge badge-soft text-warning"><i class="fas fa-crown me-1"></i>Admin</span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="small text-muted"><?php echo htmlspecialchars($user['email']); ?></div>
+                                            <div class="small text-muted">Joined <?php echo date('M j, Y', strtotime($user['created_at'])); ?></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <?php if ($user['level_name']): ?>
+                                        <span class="badge badge-soft text-primary">
+                                            <?php echo $user['badge_icon']; ?> <?php echo htmlspecialchars($user['level_name']); ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge badge-soft text-secondary">Unranked</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold"><?php echo number_format($user['reputation_points']); ?></div>
+                                    <div class="text-muted small">Reputation score</div>
+                                </td>
+                                <td>
+                                    <div class="text-muted small">Sites: <span class="fw-semibold"><?php echo (int) $user['total_submissions']; ?></span></div>
+                                    <div class="text-muted small">Reviews: <span class="fw-semibold"><?php echo (int) $user['total_reviews_written']; ?></span></div>
+                                </td>
+                                <td>
+                                    <div class="fw-semibold">$<?php echo number_format($user['credit_balance'], 4); ?></div>
+                                    <div class="text-muted small">Credits available</div>
+                                </td>
+                                <td>
+                                    <?php if ($user['is_banned']): ?>
+                                        <span class="badge badge-soft text-danger"><span class="status-indicator danger"></span>Banned</span>
+                                        <?php if ($user['ban_reason']): ?>
+                                            <div class="text-muted small mt-1">Reason: <?php echo htmlspecialchars($user['ban_reason']); ?></div>
+                                        <?php endif; ?>
+                                    <?php elseif ($user['is_moderator']): ?>
+                                        <span class="badge badge-soft text-info"><span class="status-indicator info"></span>Moderator</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-soft text-success"><span class="status-indicator success"></span>Active</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap justify-content-end gap-2">
+                                        <button class="btn btn-outline-primary btn-sm" onclick="editUser(<?php echo htmlspecialchars(json_encode($user)); ?>)">
+                                            <i class="fas fa-user-gear me-1"></i>Edit
+                                        </button>
+                                        <?php if (!$user['is_admin']): ?>
+                                            <?php if ($user['is_banned']): ?>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="action" value="unban">
+                                                    <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                    <button type="submit" class="btn btn-success btn-sm"><i class="fas fa-unlock me-1"></i>Unban</button>
+                                                </form>
+                                            <?php else: ?>
+                                                <button class="btn btn-outline-danger btn-sm" onclick="banUserWithReason(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')">
+                                                    <i class="fas fa-ban me-1"></i>Ban
+                                                </button>
+                                            <?php endif; ?>
+
+                                            <?php if ($user['is_moderator']): ?>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="action" value="remove_moderator">
+                                                    <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                    <button type="submit" class="btn btn-outline-warning btn-sm"><i class="fas fa-user-minus me-1"></i>Remove Mod</button>
+                                                </form>
+                                            <?php else: ?>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="action" value="make_moderator">
+                                                    <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                    <button type="submit" class="btn btn-outline-success btn-sm"><i class="fas fa-user-check me-1"></i>Make Mod</button>
+                                                </form>
+                                            <?php endif; ?>
+
+                                            <button class="btn btn-outline-secondary btn-sm" onclick="adjustPoints(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')">
+                                                <i class="fas fa-coins me-1"></i>Adjust Points
+                                            </button>
+                                            <button class="btn btn-outline-light btn-sm" onclick="viewUserActivity(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')">
+                                                <i class="fas fa-clock-rotate-left me-1"></i>Activity
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <?php if ($total_pages > 1): ?>
+                    <div class="p-3 border-top border-0">
                         <nav>
-                            <ul class="pagination justify-content-center">
+                            <ul class="pagination justify-content-center mb-0">
                                 <?php if ($page > 1): ?>
                                     <li class="page-item">
                                         <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>">Previous</a>
                                     </li>
                                 <?php endif; ?>
-                                
+
                                 <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
                                     <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
                                         <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>"><?php echo $i; ?></a>
                                     </li>
                                 <?php endfor; ?>
-                                
+
                                 <?php if ($page < $total_pages): ?>
                                     <li class="page-item">
                                         <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>">Next</a>
@@ -505,7 +608,28 @@ include 'includes/admin_header.php';
                                 <?php endif; ?>
                             </ul>
                         </nav>
-                    <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <div class="row g-4 mt-1">
+                <div class="col-12">
+                    <div class="glass-card ad-slot p-4 text-center fade-in">
+                        <span class="text-uppercase small text-muted d-block">Sponsored banner slot</span>
+                        <span class="display-6 fw-bold text-muted">728 × 90</span>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-4">
+                    <div class="glass-card ad-slot p-4 text-center fade-in h-100">
+                        <span class="text-uppercase small text-muted d-block">Account upgrade offer</span>
+                        <span class="h3 fw-bold text-muted">300 × 250</span>
+                    </div>
+                </div>
+                <div class="col-sm-6 col-xl-4">
+                    <div class="glass-card ad-slot p-4 text-center fade-in h-100">
+                        <span class="text-uppercase small text-muted d-block">Loyalty spotlight</span>
+                        <span class="h3 fw-bold text-muted">468 × 60</span>
+                    </div>
                 </div>
             </div>
         </main>
@@ -515,7 +639,7 @@ include 'includes/admin_header.php';
 <!-- Ban User Modal -->
 <div class="modal fade" id="banUserModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content glass-card">
             <div class="modal-header">
                 <h5 class="modal-title">Ban User Account</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -558,7 +682,7 @@ include 'includes/admin_header.php';
 <!-- Adjust Points Modal -->
 <div class="modal fade" id="adjustPointsModal" tabindex="-1">
     <div class="modal-dialog">
-        <div class="modal-content">
+        <div class="modal-content glass-card">
             <div class="modal-header">
                 <h5 class="modal-title">Adjust User Points</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -688,7 +812,7 @@ include 'includes/admin_header.php';
 <!-- User Activity Modal -->
 <div class="modal fade" id="userActivityModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
+        <div class="modal-content glass-card">
             <div class="modal-header">
                 <h5 class="modal-title">User Activity History</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
