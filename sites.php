@@ -412,10 +412,10 @@ include 'includes/header.php';
                         <div class="text-muted d-flex align-items-center gap-2"><i class="fas fa-arrows-rotate"></i> Updates every 30 seconds</div>
                     </div>
 
-                    <?php if (!empty($sites)): ?>
-                        <div id="sitesContainer" class="<?php echo $view_mode === 'grid' ? 'sites-grid' : 'sites-list'; ?>">
-                            <?php
-                            $rank_offset = ($page - 1) * $per_page + 1;
+                    <div id="sitesContainer" class="<?php echo $view_mode === 'grid' ? 'sites-grid' : 'sites-list'; ?>">
+                        <?php
+                        $rank_offset = ($page - 1) * $per_page + 1;
+                        if (!empty($sites)):
                             foreach ($sites as $index => $site):
                                 $current_rank = $rank_offset + $index;
                                 $crown_icon = '';
@@ -427,44 +427,50 @@ include 'includes/header.php';
                                         default => ''
                                     };
                                 }
-                            ?>
-                            <div class="site-card listing-card <?php echo $view_mode === 'list' ? 'list-view ' : ''; ?>position-relative animate-fade-in" data-site-id="<?php echo $site['id']; ?>" data-rank="<?php echo $current_rank; ?>">
-                                <?php if ($current_rank <= 3): ?>
-                                    <span class="stat-ribbon rank-<?php echo $current_rank; ?>"><?php echo $crown_icon; ?>Top <?php echo $current_rank; ?></span>
-                                <?php endif; ?>
-                                <div class="site-header">
-                                    <img src="<?php echo htmlspecialchars($site['logo'] ?: 'assets/images/default-logo.png'); ?>" alt="<?php echo htmlspecialchars($site['name']); ?>" class="site-logo">
-                                    <div class="site-info">
-                                        <!--<h3 class="text-white mb-1">
-                                            #<?php echo $current_rank; ?> <?php echo htmlspecialchars($site['name']); ?>
-                                            <?php if ($site['promotion_status'] === 'sponsored'): ?>
-                                                <span class="badge bg-warning text-dark fw-semibold"><i class="fas fa-crown me-1"></i>Sponsored</span>
-                                            <?php elseif ($site['promotion_status'] === 'boosted'): ?>
-                                                <span class="badge bg-info text-dark fw-semibold"><i class="fas fa-rocket me-1"></i>Boosted</span>
-                                            <?php endif; ?>
-                                        </h3>-->
-                                        <span class="site-category"><i class="fas fa-layer-group"></i><?php echo ucfirst(str_replace('_', ' ', $site['category'])); ?></span>
-                                    </div>
-                                </div>
-
-                                <div class="site-description"><?php echo htmlspecialchars(truncateText($site['description'], 60)); ?></div>
-
-                                <div class="site-rating">
-                                    <?php echo renderStars(round($site['average_rating']), '1rem'); ?>
-                                    <span class="rating-value"><?php echo number_format($site['average_rating'], 1); ?>/5</span>
-                                    <span class="text-muted small">(<?php echo $site['review_count']; ?>)</span>
-                                </div>
-
-                                <div class="site-metrics">
-                                    <div class="metrics-left">
-                                        <div class="metric positive"><i class="fas fa-thumbs-up"></i><span><?php echo $site['total_upvotes']; ?></span></div>
-                                        <?php if ($site['total_downvotes'] > 0): ?>
-                                        <div class="metric negative"><i class="fas fa-thumbs-down"></i><span><?php echo $site['total_downvotes']; ?></span></div>
+                        ?>
+                        <div class="site-card listing-card <?php echo $view_mode === 'list' ? 'list-view ' : ''; ?>position-relative animate-fade-in" data-site-id="<?php echo $site['id']; ?>" data-rank="<?php echo $current_rank; ?>">
+                            <?php if ($current_rank <= 3): ?>
+                                <span class="stat-ribbon rank-<?php echo $current_rank; ?>"><?php echo $crown_icon; ?>Top <?php echo $current_rank; ?></span>
+                            <?php endif; ?>
+                            <div class="site-header">
+                                <img src="<?php echo htmlspecialchars($site['logo'] ?: 'assets/images/default-logo.png'); ?>" alt="<?php echo htmlspecialchars($site['name']); ?>" class="site-logo">
+                                <div class="site-info">
+                                    <h3 class="site-name text-white mb-2">
+                                        #<?php echo $current_rank; ?> <?php echo htmlspecialchars($site['name']); ?>
+                                        <?php if (!empty($site['promotion_status']) && $site['promotion_status'] !== 'normal'): ?>
+                                            <span class="badge <?php echo $site['promotion_status'] === 'sponsored' ? 'bg-warning text-dark' : 'bg-info text-dark'; ?> fw-semibold ms-2">
+                                                <i class="fas <?php echo $site['promotion_status'] === 'sponsored' ? 'fa-crown' : 'fa-rocket'; ?> me-1"></i><?php echo ucfirst($site['promotion_status']); ?>
+                                            </span>
                                         <?php endif; ?>
-                                        <div class="metric"><i class="fas fa-comments"></i><span><?php echo $site['review_count']; ?></span></div>
-                                        <div class="metric"><i class="fas fa-clock"></i><span><?php echo timeAgo($site['created_at']); ?></span></div>
+                                    </h3>
+                                    <div class="d-flex flex-wrap align-items-center gap-2 text-muted small">
+                                        <span class="site-category"><i class="fas fa-layer-group"></i><?php echo ucfirst(str_replace('_', ' ', $site['category'])); ?></span>
+                                        <span class="text-uppercase fw-semibold text-info">Ranked #<?php echo $current_rank; ?></span>
                                     </div>
-                                    <?php echo getStatusBadge($site['status'] ?? 'paying'); ?>
+                                </div>
+                            </div>
+
+                            <div class="site-card-body">
+                                <p class="site-description mb-0"><?php echo htmlspecialchars(truncateText($site['description'], 120)); ?></p>
+
+                                <div class="site-card-stats">
+                                    <div class="site-rating">
+                                        <?php echo renderStars(round($site['average_rating']), '1rem'); ?>
+                                        <span class="rating-value"><?php echo number_format($site['average_rating'], 1); ?>/5</span>
+                                        <span class="text-muted small">(<?php echo $site['review_count']; ?>)</span>
+                                    </div>
+
+                                    <div class="site-metrics">
+                                        <div class="metrics-left">
+                                            <div class="metric positive"><i class="fas fa-thumbs-up"></i><span><?php echo $site['total_upvotes']; ?></span></div>
+                                            <?php if ($site['total_downvotes'] > 0): ?>
+                                            <div class="metric negative"><i class="fas fa-thumbs-down"></i><span><?php echo $site['total_downvotes']; ?></span></div>
+                                            <?php endif; ?>
+                                            <div class="metric"><i class="fas fa-comments"></i><span><?php echo $site['review_count']; ?></span></div>
+                                            <div class="metric"><i class="fas fa-clock"></i><span><?php echo timeAgo($site['created_at']); ?></span></div>
+                                        </div>
+                                        <div class="status-holder"><?php echo getStatusBadge($site['status'] ?? 'paying'); ?></div>
+                                    </div>
                                 </div>
 
                                 <div class="site-actions">
@@ -481,37 +487,40 @@ include 'includes/header.php';
                                     <a href="review?id=<?php echo $site['id']; ?>" class="btn btn-theme btn-gradient"><i class="fas fa-info-circle me-2"></i>View Details</a>
                                 </div>
                             </div>
-                            <?php endforeach; ?>
                         </div>
-
-                        <?php if ($total_pages > 1): ?>
-                        <div class="pagination-shell pagination-container mt-4">
-                            <div class="pagination premium-pagination">
-                                <?php if ($page > 1): ?>
-                                    <button type="button" class="page-btn nav-btn" onclick="changePage(<?php echo $page - 1; ?>)"><i class="fas fa-chevron-left"></i></button>
-                                <?php endif; ?>
-
-                                <?php
-                                $start_page = max(1, $page - 2);
-                                $end_page = min($total_pages, $page + 2);
-                                for ($i = $start_page; $i <= $end_page; $i++):
-                                ?>
-                                    <button type="button" class="page-btn <?php echo $i == $page ? 'active' : ''; ?>" onclick="changePage(<?php echo $i; ?>)"><?php echo $i; ?></button>
-                                <?php endfor; ?>
-
-                                <?php if ($page < $total_pages): ?>
-                                    <button type="button" class="page-btn nav-btn" onclick="changePage(<?php echo $page + 1; ?>)"><i class="fas fa-chevron-right"></i></button>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                    <?php else: ?>
+                        <?php
+                            endforeach;
+                        else:
+                        ?>
                         <div class="empty-state">
                             <i class="fas fa-search"></i>
                             <h3>No Sites Found</h3>
                             <p>No sites match your current filters. Try adjusting your search criteria.</p>
                             <button onclick="clearFilters()" class="btn btn-theme btn-gradient">Clear Filters</button>
                         </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <?php if ($total_pages > 1): ?>
+                    <div class="pagination-shell pagination-container mt-4">
+                        <div class="pagination premium-pagination">
+                            <?php if ($page > 1): ?>
+                                <button type="button" class="page-btn nav-btn" onclick="changePage(<?php echo $page - 1; ?>)"><i class="fas fa-chevron-left"></i></button>
+                            <?php endif; ?>
+
+                            <?php
+                            $start_page = max(1, $page - 2);
+                            $end_page = min($total_pages, $page + 2);
+                            for ($i = $start_page; $i <= $end_page; $i++):
+                            ?>
+                                <button type="button" class="page-btn <?php echo $i == $page ? 'active' : ''; ?>" onclick="changePage(<?php echo $i; ?>)"><?php echo $i; ?></button>
+                            <?php endfor; ?>
+
+                            <?php if ($page < $total_pages): ?>
+                                <button type="button" class="page-btn nav-btn" onclick="changePage(<?php echo $page + 1; ?>)"><i class="fas fa-chevron-right"></i></button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                     <?php endif; ?>
                 </div>
 
@@ -552,16 +561,144 @@ include 'includes/header.php';
     </div>
 </main>
 
+<style>
+    .sites-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.75rem;
+    }
+
+    .sites-grid .site-card {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        padding: 1.5rem;
+    }
+
+    .sites-grid .site-header {
+        margin-bottom: 1.25rem;
+    }
+
+    .sites-grid .site-card-body {
+        flex: 1 1 auto;
+        justify-content: space-between;
+    }
+
+    .sites-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .sites-list .site-card {
+        display: flex;
+        flex-direction: row;
+        align-items: stretch;
+        gap: 1.75rem;
+        padding: 1.75rem;
+    }
+
+    .sites-list .site-header {
+        flex: 0 0 260px;
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+    }
+
+    .sites-list .site-card-body {
+        flex: 1 1 auto;
+    }
+
+    .site-card .site-card-body {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .site-card .site-card-stats {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .site-card .site-description {
+        color: rgba(255, 255, 255, 0.75);
+        line-height: 1.6;
+    }
+
+    .site-card .site-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .site-card .vote-buttons {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .site-card .metrics-left {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.85rem;
+        align-items: center;
+    }
+
+    .site-card .status-holder {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+    }
+
+    @media (min-width: 768px) {
+        .site-card .site-card-stats {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .site-card .site-actions {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+        }
+    }
+
+    @media (max-width: 991.98px) {
+        .sites-grid {
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        }
+
+        .sites-list .site-card {
+            flex-direction: column;
+        }
+
+        .sites-list .site-header {
+            flex: 1 1 auto;
+        }
+    }
+
+    @media (max-width: 575.98px) {
+        .site-card .metrics-left {
+            gap: 0.6rem;
+        }
+
+        .site-card .site-actions {
+            align-items: stretch;
+        }
+    }
+</style>
+
 <script>
 // Global variables
 let currentFilters = {
-    category: '<?php echo $category; ?>',
-    status: '<?php echo $status; ?>',
-    sort: '<?php echo $sort; ?>',
-    search: '<?php echo $search; ?>',
-    page: <?php echo $page; ?>,
-    per_page: <?php echo $per_page; ?>,
-    view: '<?php echo $view_mode; ?>'
+    category: <?php echo json_encode($category); ?>,
+    status: <?php echo json_encode($status); ?>,
+    sort: <?php echo json_encode($sort); ?>,
+    search: <?php echo json_encode($search); ?>,
+    page: <?php echo (int) $page; ?>,
+    per_page: <?php echo (int) $per_page; ?>,
+    view: <?php echo json_encode($view_mode); ?>
 };
 
 let searchTimeout;
@@ -871,8 +1008,11 @@ function loadSitesAjax() {
         .then(data => {
             if (data.success) {
                 // Update sites container
-                document.getElementById('sitesContainer').innerHTML = data.sites_html;
-                applyViewMode();
+                const container = document.getElementById('sitesContainer');
+                if (container) {
+                    container.innerHTML = data.sites_html;
+                    applyViewMode();
+                }
                 
                 // Update pagination
                 const paginationContainer = document.querySelector('.pagination-container');
@@ -920,12 +1060,14 @@ function loadSitesAjax() {
 
 function showLoadingState() {
     const container = document.getElementById('sitesContainer');
+    if (!container) return;
     container.style.opacity = '0.5';
     container.style.pointerEvents = 'none';
 }
 
 function hideLoadingState() {
     const container = document.getElementById('sitesContainer');
+    if (!container) return;
     container.style.opacity = '1';
     container.style.pointerEvents = 'auto';
 }
