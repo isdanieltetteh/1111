@@ -105,14 +105,20 @@ $page_title = 'Settings - Admin Panel';
 include 'includes/admin_header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include 'includes/admin_sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Settings</h1>
+<?php include 'includes/admin_sidebar.php'; ?>
+
+<main class="admin-main">
+    <div class="admin-page-header">
+        <div>
+            <div class="admin-breadcrumb">
+                <i class="fas fa-sliders-h text-primary"></i>
+                <span>System</span>
+                <span class="text-muted">Settings</span>
             </div>
+            <h1>Control Center</h1>
+            <p class="text-muted mb-0">Configure payouts, redirects, and security guardrails.</p>
+        </div>
+    </div>
 
             <?php if ($success_message): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
@@ -149,7 +155,7 @@ include 'includes/admin_header.php';
             <div class="tab-content" id="settingsTabContent">
                 <!-- Wallet Settings -->
                 <div class="tab-pane fade show active" id="wallet" role="tabpanel">
-                    <div class="card mt-3">
+                    <div class="card admin-content-wrapper mt-3">
                         <div class="card-body">
                             <form method="POST">
                                 <input type="hidden" name="tab" value="wallet">
@@ -235,7 +241,7 @@ include 'includes/admin_header.php';
 
                 <!-- Redirect Settings -->
                 <div class="tab-pane fade" id="redirect" role="tabpanel">
-                    <div class="card mt-3">
+                    <div class="card admin-content-wrapper mt-3">
                         <div class="card-body">
                             <form method="POST">
                                 <input type="hidden" name="tab" value="redirect">
@@ -269,7 +275,7 @@ include 'includes/admin_header.php';
 
                 <!-- Upload Settings -->
                 <div class="tab-pane fade" id="upload" role="tabpanel">
-                    <div class="card mt-3">
+                    <div class="card admin-content-wrapper mt-3">
                         <div class="card-body">
                             <form method="POST">
                                 <input type="hidden" name="tab" value="upload">
@@ -311,7 +317,7 @@ include 'includes/admin_header.php';
 
                 <!-- General Settings -->
                 <div class="tab-pane fade" id="general" role="tabpanel">
-                    <div class="card mt-3">
+                    <div class="card admin-content-wrapper mt-3">
                         <div class="card-body">
                             <h5>Site Information</h5>
                             <div class="row">
@@ -334,9 +340,7 @@ include 'includes/admin_header.php';
                     </div>
                 </div>
             </div>
-        </main>
-    </div>
-</div>
+</main>
 
 <!-- Edit Currency Modal -->
 <div class="modal fade" id="editCurrencyModal" tabindex="-1">

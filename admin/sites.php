@@ -537,17 +537,23 @@ if ($approval_filter !== 'all') {
 include 'includes/admin_header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include 'includes/admin_sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Sites Management</h1>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSiteModal">
-                    <i class="fas fa-plus"></i> Add New Site
-                </button>
+<?php include 'includes/admin_sidebar.php'; ?>
+
+<main class="admin-main">
+    <div class="admin-page-header">
+        <div>
+            <div class="admin-breadcrumb">
+                <i class="fas fa-globe text-primary"></i>
+                <span>Content</span>
+                <span class="text-muted">Sites</span>
             </div>
+            <h1>Sites Management</h1>
+            <p class="text-muted mb-0">Approve, elevate, and moderate listings across the network.</p>
+        </div>
+        <button class="btn btn-primary shadow-hover" data-bs-toggle="modal" data-bs-target="#addSiteModal">
+            <i class="fas fa-plus"></i> Add New Site
+        </button>
+    </div>
 
             <?php if ($success_message): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
@@ -557,10 +563,9 @@ include 'includes/admin_header.php';
                 <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
             <?php endif; ?>
 
-            <!-- Filters -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <form method="GET" class="row g-3">
+    <!-- Filters -->
+    <div class="admin-content-wrapper mb-4">
+        <form method="GET" class="row g-3">
                         <div class="col-md-3">
                             <label class="form-label">Status</label>
                             <select name="status" class="form-select">
@@ -596,13 +601,11 @@ include 'includes/admin_header.php';
                             <label class="form-label">&nbsp;</label>
                             <button type="submit" class="btn btn-primary d-block">Filter</button>
                         </div>
-                    </form>
-                </div>
-            </div>
+        </form>
+    </div>
 
-            <!-- Sites Table -->
-            <div class="card">
-                <div class="card-body">
+    <!-- Sites Table -->
+    <div class="admin-content-wrapper">
                     <div class="table-responsive">
                         <table class="table table-striped">
                             <thead>
@@ -745,9 +748,7 @@ include 'includes/admin_header.php';
                     <?php endif; ?>
                 </div>
             </div>
-        </main>
-    </div>
-</div>
+</main>
 
 <!-- Site Details Modal -->
 <div class="modal fade" id="siteDetailsModal" tabindex="-1">

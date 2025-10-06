@@ -7,14 +7,12 @@ $auth = new Auth();
 $database = new Database();
 $db = $database->getConnection();
 
-// Redirect if not admin
 if (!$auth->isAdmin()) {
     header('Location: ../login.php');
     exit();
 }
 
-// Get dashboard statistics
-$stats_query = "SELECT 
+$stats_query = "SELECT
     (SELECT COUNT(*) FROM sites WHERE is_approved = 1) as total_sites,
     (SELECT COUNT(*) FROM sites WHERE is_approved = 0) as pending_sites,
     (SELECT COUNT(*) FROM sites WHERE status = 'scam_reported') as reported_sites,
@@ -33,15 +31,13 @@ $stats_query = "SELECT
     (SELECT COUNT(*) FROM security_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as security_events_24h,
     (SELECT COUNT(*) FROM support_tickets WHERE status = 'open') as open_tickets";
 
-
 $stats_stmt = $db->prepare($stats_query);
 $stats_stmt->execute();
 $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
 
-// Get recent activity
-$recent_sites_query = "SELECT s.*, u.username FROM sites s 
-                       LEFT JOIN users u ON s.submitted_by = u.id 
-                       WHERE s.is_approved = 0 
+$recent_sites_query = "SELECT s.*, u.username FROM sites s
+                       LEFT JOIN users u ON s.submitted_by = u.id
+                       WHERE s.is_approved = 0
                        ORDER BY s.created_at DESC LIMIT 5";
 $recent_sites_stmt = $db->prepare($recent_sites_query);
 $recent_sites_stmt->execute();
@@ -54,310 +50,249 @@ $recent_users = $recent_users_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $page_title = 'Admin Dashboard - ' . SITE_NAME;
 include 'includes/admin_header.php';
+include 'includes/admin_sidebar.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include 'includes/admin_sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Dashboard</h1>
-                <div class="btn-toolbar mb-2 mb-md-0">
-                    <div class="btn-group me-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>
-                    </div>
-                </div>
+<main class="admin-main">
+    <div class="admin-page-header">
+        <div>
+            <div class="admin-breadcrumb">
+                <i class="fas fa-gauge-high text-primary"></i>
+                <span>Overview</span>
+                <span class="text-muted">Command Center</span>
             </div>
-
-            <!-- Statistics Cards -->
-            <div class="row mb-4">
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-primary shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Sites</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['total_sites']); ?></div>
-                                    <div class="text-xs text-gray-600">
-                                        <?php if ($stats['dead_sites'] > 0): ?>
-                                            <span class="text-danger"><?php echo $stats['dead_sites']; ?> dead</span>
-                                        <?php else: ?>
-                                            <span class="text-success">All healthy</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-globe fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-warning shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pending Sites</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['pending_sites']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-clock fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-success shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Users</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['total_users']); ?></div>
-                                    <div class="text-xs text-gray-600">
-                                        <span class="text-success"><?php echo $stats['new_users']; ?> new this month</span>
-                                        <?php if ($stats['banned_users'] > 0): ?>
-                                            | <span class="text-danger"><?php echo $stats['banned_users']; ?> banned</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-users fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-info shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Total Reviews</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['total_reviews']); ?></div>
-                                    <div class="text-xs text-gray-600">
-                                        <span class="text-info"><?php echo $stats['recent_reviews']; ?> this week</span>
-                                        <?php if ($stats['flagged_reviews'] > 0): ?>
-                                            | <span class="text-warning"><?php echo $stats['flagged_reviews']; ?> flagged</span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-comments fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Financial Stats -->
-            <div class="row mb-4">
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-warning shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Security Events</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['security_events_24h']); ?></div>
-                                    <div class="text-xs text-gray-600">Last 24 hours</div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-shield-halved fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-xl-4 col-md-6 mb-4">
-                    <div class="card border-left-success shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Total Credits</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800">$<?php echo number_format($stats['total_credits'], 4); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-4 col-md-6 mb-4">
-                    <div class="card border-left-primary shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Points</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['total_points']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-coins fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-4 col-md-6 mb-4">
-                    <div class="card border-left-warning shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pending Withdrawals</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['pending_withdrawals']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-arrow-up fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-xl-4 col-md-6 mb-4">
-                    <div class="card border-left-info shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Open Tickets</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['open_tickets']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-headset fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Activity -->
-            <div class="row">
-                <div class="col-lg-6 mb-4">
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                            <h6 class="m-0 font-weight-bold text-primary">Pending Site Submissions</h6>
-                            <a href="sites.php" class="btn btn-sm btn-primary">View All</a>
-                        </div>
-                        <div class="card-body">
-                            <?php if (!empty($recent_sites)): ?>
-                                <?php foreach ($recent_sites as $site): ?>
-                                <div class="d-flex align-items-center mb-3">
-                                    <img src="../<?php echo htmlspecialchars($site['logo'] ?: 'assets/images/default-logo.png'); ?>" 
-                                         class="rounded me-3" width="40" height="40">
-                                    <div class="flex-grow-1">
-                                        <h6 class="mb-0"><?php echo htmlspecialchars($site['name']); ?></h6>
-                                        <small class="text-muted">by <?php echo htmlspecialchars($site['username'] ?: 'Unknown'); ?></small>
-                                    </div>
-                                    <div>
-                                        <a href="sites.php?action=approve&id=<?php echo $site['id']; ?>" 
-                                           class="btn btn-sm btn-success me-1">Approve</a>
-                                        <a href="sites.php?action=reject&id=<?php echo $site['id']; ?>" 
-                                           class="btn btn-sm btn-danger">Reject</a>
-                                    </div>
-                                </div>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <p class="text-muted">No pending submissions</p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-lg-6 mb-4">
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
-                            <h6 class="m-0 font-weight-bold text-primary">Recent Users</h6>
-                            <a href="users.php" class="btn btn-sm btn-primary">View All</a>
-                        </div>
-                        <div class="card-body">
-                            <?php if (!empty($recent_users)): ?>
-                                <?php foreach ($recent_users as $user): ?>
-                                <div class="d-flex align-items-center mb-3">
-                                    <img src="../<?php echo htmlspecialchars($user['avatar']); ?>" 
-                                         class="rounded-circle me-3" width="40" height="40">
-                                    <div class="flex-grow-1">
-                                        <h6 class="mb-0"><?php echo htmlspecialchars($user['username']); ?></h6>
-                                        <small class="text-muted"><?php echo date('M j, Y', strtotime($user['created_at'])); ?></small>
-                                    </div>
-                                    <div>
-                                        <span class="badge bg-primary"><?php echo $user['reputation_points']; ?> pts</span>
-                                    </div>
-                                </div>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <p class="text-muted">No recent users</p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card shadow mb-4">
-                        <div class="card-header py-3">
-                            <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-3 mb-3">
-                                    <a href="sites.php" class="btn btn-outline-primary btn-block">
-                                        <i class="fas fa-globe"></i> Manage Sites
-                                    </a>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <a href="users.php" class="btn btn-outline-success btn-block">
-                                        <i class="fas fa-users"></i> Manage Users
-                                    </a>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <a href="reviews.php" class="btn btn-outline-info btn-block">
-                                        <i class="fas fa-comments"></i> Manage Reviews
-                                    </a>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <a href="settings.php" class="btn btn-outline-warning btn-block">
-                                        <i class="fas fa-cog"></i> Settings
-                                    </a>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <a href="dead-links.php" class="btn btn-outline-danger btn-block">
-                                        <i class="fas fa-unlink"></i> Dead Links
-                                    </a>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <a href="security.php" class="btn btn-outline-dark btn-block">
-                                        <i class="fas fa-shield-halved"></i> Security
-                                    </a>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <a href="support.php" class="btn btn-outline-primary btn-block">
-                                        <i class="fas fa-headset"></i> Support
-                                    </a>
-                                </div>
-                                <div class="col-md-3 mb-3">
-                                    <a href="site-statistics.php" class="btn btn-outline-success btn-block">
-                                        <i class="fas fa-chart-bar"></i> Statistics
-                                    </a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
+            <h1>Mission Control</h1>
+            <p class="text-muted mb-0">Monitor submissions, users, and revenue engines powering <?php echo SITE_NAME; ?>.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="../index.php" target="_blank" class="btn btn-light btn-sm shadow-hover">
+                <i class="fas fa-arrow-up-right-from-square me-2"></i>Live Preview
+            </a>
+            <a href="backup.php" class="btn btn-primary btn-sm shadow-hover">
+                <i class="fas fa-database me-2"></i>Quick Backup
+            </a>
+        </div>
     </div>
-</div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Total Sites</p>
+                        <p class="metric-value mb-1" data-stat="total_sites"><?php echo number_format($stats['total_sites']); ?></p>
+                        <span class="metric-trend <?php echo ($stats['dead_sites'] > 0 || $stats['scam_sites'] > 0) ? 'down' : 'up'; ?>">
+                            <i class="fas fa-<?php echo ($stats['dead_sites'] > 0 || $stats['scam_sites'] > 0) ? 'triangle-exclamation' : 'arrow-trend-up'; ?>"></i>
+                            <?php if ($stats['dead_sites'] > 0): ?>
+                                <?php echo $stats['dead_sites']; ?> dead links to review
+                            <?php elseif ($stats['scam_sites'] > 0): ?>
+                                <?php echo $stats['scam_sites']; ?> flagged scams
+                            <?php else: ?>
+                                Healthy ecosystem
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-globe"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Pending Approvals</p>
+                        <p class="metric-value mb-1" data-stat="pending_sites"><?php echo number_format($stats['pending_sites']); ?></p>
+                        <span class="metric-trend <?php echo $stats['reported_sites'] > 0 ? 'down' : 'up'; ?>">
+                            <i class="fas fa-<?php echo $stats['reported_sites'] > 0 ? 'shield-halved' : 'hourglass-half'; ?>"></i>
+                            <?php echo $stats['reported_sites'] > 0 ? $stats['reported_sites'] . ' reports awaiting action' : 'Keep reviews flowing'; ?>
+                        </span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-inbox"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Total Users</p>
+                        <p class="metric-value mb-1" data-stat="total_users"><?php echo number_format($stats['total_users']); ?></p>
+                        <span class="metric-trend up">
+                            <i class="fas fa-user-plus"></i>
+                            <?php echo number_format($stats['new_users']); ?> joined last 30 days
+                        </span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-users"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Reviews Logged</p>
+                        <p class="metric-value mb-1" data-stat="total_reviews"><?php echo number_format($stats['total_reviews']); ?></p>
+                        <span class="metric-trend <?php echo $stats['flagged_reviews'] > 0 ? 'down' : 'up'; ?>">
+                            <i class="fas fa-comments"></i>
+                            <?php if ($stats['flagged_reviews'] > 0): ?>
+                                <?php echo $stats['flagged_reviews']; ?> flagged for follow-up
+                            <?php else: ?>
+                                <?php echo number_format($stats['recent_reviews']); ?> this week
+                            <?php endif; ?>
+                        </span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-comment-dots"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-xl-4 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Security Events (24h)</p>
+                        <p class="metric-value mb-1" data-stat="security_events_24h"><?php echo number_format($stats['security_events_24h']); ?></p>
+                        <span class="metric-trend <?php echo $stats['security_events_24h'] > 0 ? 'down' : 'up'; ?>">
+                            <i class="fas fa-shield"></i>
+                            <?php echo $stats['security_events_24h'] > 0 ? 'Review latest alerts' : 'No alerts triggered'; ?>
+                        </span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-lock"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Credits in Circulation</p>
+                        <p class="metric-value mb-1" data-stat="total_credits">$<?php echo number_format($stats['total_credits'], 4); ?></p>
+                        <span class="metric-trend up">
+                            <i class="fas fa-coins"></i>
+                            Monetization engine stable
+                        </span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-dollar-sign"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Points Treasury</p>
+                        <p class="metric-value mb-1" data-stat="total_points"><?php echo number_format($stats['total_points']); ?></p>
+                        <span class="metric-trend up">
+                            <i class="fas fa-trophy"></i>
+                            Powering loyalty rewards
+                        </span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-gem"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6">
+            <div class="admin-content-wrapper h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h5 class="mb-1">Pending Site Submissions</h5>
+                        <p class="text-muted mb-0">Approve or reject the freshest community drops.</p>
+                    </div>
+                    <a href="sites.php" class="btn btn-sm btn-primary shadow-hover">View All</a>
+                </div>
+                <?php if (!empty($recent_sites)): ?>
+                    <div class="scroll-shadow" style="max-height: 320px;">
+                        <?php foreach ($recent_sites as $site): ?>
+                            <div class="d-flex align-items-center justify-content-between py-3 border-bottom border-light-subtle">
+                                <div class="d-flex align-items-center gap-3">
+                                    <img src="../<?php echo htmlspecialchars($site['logo'] ?: 'assets/images/default-logo.png'); ?>" class="rounded shadow" width="48" height="48" alt="<?php echo htmlspecialchars($site['name']); ?>">
+                                    <div>
+                                        <h6 class="mb-0 fw-semibold"><?php echo htmlspecialchars($site['name']); ?></h6>
+                                        <small class="text-muted">Submitted by <?php echo htmlspecialchars($site['username'] ?: 'Unknown'); ?></small>
+                                    </div>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <a href="sites.php?action=approve&id=<?php echo $site['id']; ?>" class="btn btn-success btn-sm shadow-hover">Approve</a>
+                                    <a href="sites.php?action=reject&id=<?php echo $site['id']; ?>" class="btn btn-outline-danger btn-sm">Reject</a>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="text-center py-4 text-muted">No pending submissions</div>
+                <?php endif; ?>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="admin-content-wrapper h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div>
+                        <h5 class="mb-1">Newest Agents</h5>
+                        <p class="text-muted mb-0">Celebrate our latest community members.</p>
+                    </div>
+                    <a href="users.php" class="btn btn-sm btn-primary shadow-hover">View All</a>
+                </div>
+                <?php if (!empty($recent_users)): ?>
+                    <div class="scroll-shadow" style="max-height: 320px;">
+                        <?php foreach ($recent_users as $user): ?>
+                            <div class="d-flex align-items-center justify-content-between py-3 border-bottom border-light-subtle">
+                                <div class="d-flex align-items-center gap-3">
+                                    <img src="../<?php echo htmlspecialchars($user['avatar']); ?>" class="rounded-circle border" width="48" height="48" alt="<?php echo htmlspecialchars($user['username']); ?>">
+                                    <div>
+                                        <h6 class="mb-0 fw-semibold"><?php echo htmlspecialchars($user['username']); ?></h6>
+                                        <small class="text-muted">Joined <?php echo date('M j, Y', strtotime($user['created_at'])); ?></small>
+                                    </div>
+                                </div>
+                                <span class="badge-soft"><i class="fas fa-star me-1 text-warning"></i><?php echo $user['reputation_points']; ?> pts</span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="text-center py-4 text-muted">No recent users</div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-content-wrapper">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h5 class="mb-1">Quick Actions</h5>
+                <p class="text-muted mb-0">Warp to high-impact areas of the control room.</p>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3 col-sm-6">
+                <a href="sites.php" class="btn btn-outline-primary w-100 shadow-hover"><i class="fas fa-globe me-2"></i>Manage Sites</a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="users.php" class="btn btn-outline-success w-100 shadow-hover"><i class="fas fa-users me-2"></i>Manage Users</a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="reviews.php" class="btn btn-outline-info w-100 shadow-hover"><i class="fas fa-comments me-2"></i>Manage Reviews</a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="settings.php" class="btn btn-outline-warning w-100 shadow-hover"><i class="fas fa-sliders-h me-2"></i>Settings</a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="dead-links.php" class="btn btn-outline-danger w-100 shadow-hover"><i class="fas fa-unlink me-2"></i>Dead Links</a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="security.php" class="btn btn-outline-dark w-100 shadow-hover"><i class="fas fa-shield-halved me-2"></i>Security</a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="support.php" class="btn btn-outline-primary w-100 shadow-hover"><i class="fas fa-headset me-2"></i>Support</a>
+            </div>
+            <div class="col-md-3 col-sm-6">
+                <a href="site-statistics.php" class="btn btn-outline-success w-100 shadow-hover"><i class="fas fa-chart-bar me-2"></i>Statistics</a>
+            </div>
+        </div>
+    </div>
+</main>
 
 <?php include 'includes/admin_footer.php'; ?>

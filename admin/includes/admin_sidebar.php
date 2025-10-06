@@ -1,133 +1,124 @@
-<nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
-    <div class="position-sticky pt-3">
-        <ul class="nav flex-column">
-            <li class="nav-item">
+<aside id="sidebarMenu" class="admin-sidebar">
+    <div class="d-flex flex-column h-100">
+        <div>
+            <p class="sidebar-title text-uppercase">Main Navigation</p>
+            <nav class="nav flex-column nav-section">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>" href="dashboard.php">
-                    <i class="fas fa-gauge-high"></i> Dashboard
+                    <span class="icon-wrapper"><i class="fas fa-gauge-high"></i></span>
+                    <span>Dashboard</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'sites.php' ? 'active' : ''; ?>" href="sites.php">
-                    <i class="fas fa-globe"></i> Sites Management
+                    <span class="icon-wrapper"><i class="fas fa-globe"></i></span>
+                    <span>Sites Management</span>
+                    <?php if (!empty($stats['pending_sites'] ?? null)): ?>
+                        <span class="badge ms-auto">Pending</span>
+                    <?php endif; ?>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'backlink-tracking.php' ? 'active' : ''; ?>" href="backlink-tracking.php">
-                    <i class="fas fa-link"></i> Backlink Tracking
+                    <span class="icon-wrapper"><i class="fas fa-link"></i></span>
+                    <span>Backlink Tracking</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>" href="users.php">
-                    <i class="fas fa-users"></i> Users Management
+                    <span class="icon-wrapper"><i class="fas fa-users"></i></span>
+                    <span>Users Management</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'create-user.php' ? 'active' : ''; ?>" href="create-user.php">
-                    <i class="fas fa-user-plus"></i> Create User
+                    <span class="icon-wrapper"><i class="fas fa-user-plus"></i></span>
+                    <span>Create User</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'reviews.php' ? 'active' : ''; ?>" href="reviews.php">
-                    <i class="fas fa-comments"></i> Reviews Management
+                    <span class="icon-wrapper"><i class="fas fa-comments"></i></span>
+                    <span>Reviews</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'categories.php' ? 'active' : ''; ?>" href="categories.php">
-                    <i class="fas fa-tags"></i> Categories
+                    <span class="icon-wrapper"><i class="fas fa-tags"></i></span>
+                    <span>Categories</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'notifications.php' ? 'active' : ''; ?>" href="notifications.php">
-                    <i class="fas fa-bell"></i> Notifications
+                    <span class="icon-wrapper"><i class="fas fa-bell"></i></span>
+                    <span>Notifications</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'email.php' ? 'active' : ''; ?>" href="email.php">
-                    <i class="fas fa-envelope"></i> Email Campaigns
+                    <span class="icon-wrapper"><i class="fas fa-envelope"></i></span>
+                    <span>Email Campaigns</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'newsletter.php' ? 'active' : ''; ?>" href="newsletter.php">
-                    <i class="fas fa-newspaper"></i> Newsletter
+                    <span class="icon-wrapper"><i class="fas fa-newspaper"></i></span>
+                    <span>Newsletter</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'support.php' ? 'active' : ''; ?>" href="support.php">
-                    <i class="fas fa-headset"></i> Support Tickets
+                    <span class="icon-wrapper"><i class="fas fa-headset"></i></span>
+                    <span>Support Tickets</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'badges.php' ? 'active' : ''; ?>" href="badges.php">
-                    <i class="fas fa-medal"></i> Badge System
+                    <span class="icon-wrapper"><i class="fas fa-medal"></i></span>
+                    <span>Badges</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'wallet.php' ? 'active' : ''; ?>" href="wallet.php">
-                    <i class="fas fa-wallet"></i> Wallet System
+                    <span class="icon-wrapper"><i class="fas fa-wallet"></i></span>
+                    <span>Wallet System</span>
                 </a>
-            </li>
-             Updated ad management link to new revenue system 
-            <li class="nav-item">
-                <a class="nav-link <?php echo in_array(basename($_SERVER['PHP_SELF']), ['ads.php', 'ad-revenue.php', 'ad-analytics.php']) ? 'active' : ''; ?>" href="ad-revenue.php">
-                    <i class="fas fa-ad"></i> Ad Revenue System
+                <a class="nav-link <?php echo in_array(basename($_SERVER['PHP_SELF']), ['ads.php', 'ad-revenue.php', 'ad-analytics.php', 'manage-ad-spaces.php', 'ad-control.php']) ? 'active' : ''; ?>" href="ad-revenue.php">
+                    <span class="icon-wrapper"><i class="fas fa-ad"></i></span>
+                    <span>Ad Revenue Suite</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'promotions.php' ? 'active' : ''; ?>" href="promotions.php">
-                    <i class="fas fa-rocket"></i> Promotions
+                    <span class="icon-wrapper"><i class="fas fa-rocket"></i></span>
+                    <span>Promotions</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'coupons.php' ? 'active' : ''; ?>" href="coupons.php">
-                    <i class="fas fa-ticket-simple"></i> Coupon System
+                    <span class="icon-wrapper"><i class="fas fa-ticket"></i></span>
+                    <span>Coupons</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'analytics.php' ? 'active' : ''; ?>" href="analytics.php">
-                    <i class="fas fa-chart-line"></i> Analytics
+                    <span class="icon-wrapper"><i class="fas fa-chart-line"></i></span>
+                    <span>Analytics</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'site-statistics.php' ? 'active' : ''; ?>" href="site-statistics.php">
-                    <i class="fas fa-chart-bar"></i> Site Statistics
+                    <span class="icon-wrapper"><i class="fas fa-chart-bar"></i></span>
+                    <span>Site Statistics</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'dead-links.php' ? 'active' : ''; ?>" href="dead-links.php">
-                    <i class="fas fa-unlink"></i> Dead Links
+                    <span class="icon-wrapper"><i class="fas fa-unlink"></i></span>
+                    <span>Dead Links</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'security.php' ? 'active' : ''; ?>" href="security.php">
-                    <i class="fas fa-shield-halved"></i> Security
+                    <span class="icon-wrapper"><i class="fas fa-shield-halved"></i></span>
+                    <span>Security</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>" href="settings.php">
-                    <i class="fas fa-cog"></i> Settings
+                    <span class="icon-wrapper"><i class="fas fa-sliders-h"></i></span>
+                    <span>Settings</span>
                 </a>
-            </li>
-        </ul>
+            </nav>
+        </div>
 
-        <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
-            <span>Tools</span>
-        </h6>
-        <ul class="nav flex-column mb-2">
-            <li class="nav-item">
+        <div>
+            <p class="sidebar-title text-uppercase">Tools &amp; Logs</p>
+            <nav class="nav flex-column nav-section">
                 <a class="nav-link" href="backup.php">
-                    <i class="fas fa-database"></i> Database Backup
+                    <span class="icon-wrapper"><i class="fas fa-database"></i></span>
+                    <span>Database Backup</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link" href="logs.php">
-                    <i class="fas fa-file-lines"></i> System Logs
+                    <span class="icon-wrapper"><i class="fas fa-file-lines"></i></span>
+                    <span>System Logs</span>
                 </a>
-            </li>
-            <li class="nav-item">
                 <a class="nav-link" href="../index.php" target="_blank">
-                    <i class="fas fa-arrow-up-right-from-square"></i> View Site
+                    <span class="icon-wrapper"><i class="fas fa-arrow-up-right-from-square"></i></span>
+                    <span>View Site</span>
                 </a>
-            </li>
-        </ul>
+            </nav>
+        </div>
+
+        <div class="sidebar-footer mt-4">
+            <div class="d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="d-block fw-semibold">Status</span>
+                    <small class="text-muted">System operational</small>
+                </div>
+                <span class="badge">v<?php echo defined('APP_VERSION') ? APP_VERSION : '1.0'; ?></span>
+            </div>
+        </div>
     </div>
-</nav>
+</aside>

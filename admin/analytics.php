@@ -98,92 +98,83 @@ $page_title = 'Analytics - Admin Panel';
 include 'includes/admin_header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include 'includes/admin_sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Analytics Dashboard</h1>
-                <div class="btn-group">
-                    <a href="?period=7" class="btn btn-sm <?php echo $period == '7' ? 'btn-primary' : 'btn-outline-primary'; ?>">7 Days</a>
-                    <a href="?period=30" class="btn btn-sm <?php echo $period == '30' ? 'btn-primary' : 'btn-outline-primary'; ?>">30 Days</a>
-                    <a href="?period=90" class="btn btn-sm <?php echo $period == '90' ? 'btn-primary' : 'btn-outline-primary'; ?>">90 Days</a>
-                    <a href="?period=365" class="btn btn-sm <?php echo $period == '365' ? 'btn-primary' : 'btn-outline-primary'; ?>">1 Year</a>
+<?php include 'includes/admin_sidebar.php'; ?>
+
+<main class="admin-main">
+    <div class="admin-page-header">
+        <div>
+            <div class="admin-breadcrumb">
+                <i class="fas fa-chart-line text-primary"></i>
+                <span>Insights</span>
+                <span class="text-muted">Analytics</span>
+            </div>
+            <h1>Analytics Command</h1>
+            <p class="text-muted mb-0">Visualize growth and quality signals across the network.</p>
+        </div>
+        <div class="btn-group shadow-sm">
+            <a href="?period=7" class="btn btn-sm <?php echo $period == '7' ? 'btn-primary' : 'btn-outline-primary'; ?>">7 Days</a>
+            <a href="?period=30" class="btn btn-sm <?php echo $period == '30' ? 'btn-primary' : 'btn-outline-primary'; ?>">30 Days</a>
+            <a href="?period=90" class="btn btn-sm <?php echo $period == '90' ? 'btn-primary' : 'btn-outline-primary'; ?>">90 Days</a>
+            <a href="?period=365" class="btn btn-sm <?php echo $period == '365' ? 'btn-primary' : 'btn-outline-primary'; ?>">1 Year</a>
+        </div>
+    </div>
+
+    <!-- Engagement Stats -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Weekly Active Users</p>
+                        <p class="metric-value mb-1"><?php echo number_format($engagement['weekly_active']); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-users"></i>Fresh energy weekly</span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-users"></i></span>
                 </div>
             </div>
-
-            <!-- Engagement Stats -->
-            <div class="row mb-4">
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-primary shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Weekly Active Users</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($engagement['weekly_active']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-users fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Monthly Active Users</p>
+                        <p class="metric-value mb-1"><?php echo number_format($engagement['monthly_active']); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-user-check"></i>Retention momentum</span>
                     </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-success shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Monthly Active Users</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($engagement['monthly_active']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-user-check fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-info shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Weekly Reviews</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($engagement['weekly_reviews']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-comments fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-warning shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Weekly Votes</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($engagement['weekly_votes']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-thumbs-up fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-user-check"></i></span>
                 </div>
             </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Weekly Reviews</p>
+                        <p class="metric-value mb-1"><?php echo number_format($engagement['weekly_reviews']); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-comments"></i>Community voice</span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-comments"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Weekly Votes</p>
+                        <p class="metric-value mb-1"><?php echo number_format($engagement['weekly_votes']); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-thumbs-up"></i>Trust interactions</span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-thumbs-up"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
 
             <!-- Activity Chart -->
             <div class="row">
                 <div class="col-xl-8 col-lg-7">
-                    <div class="card shadow mb-4">
+                    <div class="card admin-content-wrapper shadow mb-4">
                         <div class="card-header py-3">
                             <h6 class="m-0 font-weight-bold text-primary">Activity Overview (Last <?php echo $period; ?> Days)</h6>
                         </div>
@@ -194,7 +185,7 @@ include 'includes/admin_header.php';
                 </div>
 
                 <div class="col-xl-4 col-lg-5">
-                    <div class="card shadow mb-4">
+                    <div class="card admin-content-wrapper shadow mb-4">
                         <div class="card-header py-3">
                             <h6 class="m-0 font-weight-bold text-primary">Top Performing Sites</h6>
                         </div>
@@ -222,7 +213,7 @@ include 'includes/admin_header.php';
             </div>
 
             <!-- Recent Transactions -->
-            <div class="card shadow mb-4">
+            <div class="card admin-content-wrapper shadow mb-4">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">Recent Deposit Transactions</h6>
                 </div>
@@ -278,9 +269,7 @@ include 'includes/admin_header.php';
                     <?php endif; ?>
                 </div>
             </div>
-        </main>
-    </div>
-</div>
+</main>
 
 <script>
 // Activity Chart

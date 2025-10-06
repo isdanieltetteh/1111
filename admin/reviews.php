@@ -131,14 +131,20 @@ $page_title = 'Reviews Management - Admin Panel';
 include 'includes/admin_header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include 'includes/admin_sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Reviews Management</h1>
+<?php include 'includes/admin_sidebar.php'; ?>
+
+<main class="admin-main">
+    <div class="admin-page-header">
+        <div>
+            <div class="admin-breadcrumb">
+                <i class="fas fa-comments text-primary"></i>
+                <span>Community</span>
+                <span class="text-muted">Reviews</span>
             </div>
+            <h1>Feedback Radar</h1>
+            <p class="text-muted mb-0">Moderate trust signals and surface standout experiences.</p>
+        </div>
+    </div>
 
             <?php if ($success_message): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
@@ -148,10 +154,9 @@ include 'includes/admin_header.php';
                 <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
             <?php endif; ?>
 
-            <!-- Filters -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <form method="GET" class="row g-3">
+    <!-- Filters -->
+    <div class="admin-content-wrapper mb-4">
+        <form method="GET" class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label">Search Reviews</label>
                             <input type="text" name="search" class="form-control" 
@@ -172,13 +177,11 @@ include 'includes/admin_header.php';
                             <label class="form-label">&nbsp;</label>
                             <button type="submit" class="btn btn-primary d-block">Filter</button>
                         </div>
-                    </form>
-                </div>
-            </div>
+        </form>
+    </div>
 
-            <!-- Reviews List -->
-            <div class="card">
-                <div class="card-body">
+    <!-- Reviews List -->
+    <div class="admin-content-wrapper">
                     <?php if (!empty($reviews)): ?>
                         <?php foreach ($reviews as $review): ?>
                         <div class="border-bottom pb-3 mb-3">
@@ -307,8 +310,6 @@ include 'includes/admin_header.php';
                     <?php endif; ?>
                 </div>
             </div>
-        </main>
-    </div>
-</div>
+</main>
 
 <?php include 'includes/admin_footer.php'; ?>

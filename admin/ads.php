@@ -116,17 +116,23 @@ $page_title = 'Ad Management - Admin Panel';
 include 'includes/admin_header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include 'includes/admin_sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Ad Management</h1>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAdModal">
-                    <i class="fas fa-plus"></i> Add New Ad
-                </button>
+<?php include 'includes/admin_sidebar.php'; ?>
+
+<main class="admin-main">
+    <div class="admin-page-header">
+        <div>
+            <div class="admin-breadcrumb">
+                <i class="fas fa-ad text-primary"></i>
+                <span>Revenue</span>
+                <span class="text-muted">Ad Control</span>
             </div>
+            <h1>Ad Command Center</h1>
+            <p class="text-muted mb-0">Deploy, pause, and optimize every placement in one view.</p>
+        </div>
+        <button class="btn btn-primary shadow-hover" data-bs-toggle="modal" data-bs-target="#addAdModal">
+            <i class="fas fa-plus"></i> Add New Ad
+        </button>
+    </div>
 
             <?php if ($success_message): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
@@ -136,9 +142,8 @@ include 'includes/admin_header.php';
                 <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
             <?php endif; ?>
 
-            <!-- Ads List -->
-            <div class="card">
-                <div class="card-body">
+    <!-- Ads List -->
+    <div class="admin-content-wrapper">
                     <?php if (!empty($ads)): ?>
                         <div class="table-responsive">
                             <table class="table table-striped">
@@ -210,11 +215,8 @@ include 'includes/admin_header.php';
                             </button>
                         </div>
                     <?php endif; ?>
-                </div>
-            </div>
-        </main>
     </div>
-</div>
+</main>
 
 <!-- Add Ad Modal -->
 <div class="modal fade" id="addAdModal" tabindex="-1">
