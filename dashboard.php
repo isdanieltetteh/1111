@@ -231,6 +231,12 @@ include __DIR__ . '/includes/header.php';
                     'description' => 'Monitor credits & transactions'
                 ],
                 [
+                    'href' => 'transactions.php',
+                    'icon' => 'fa-list',
+                    'label' => 'Transactions',
+                    'description' => 'Track deposits, spending & rewards'
+                ],
+                [
                     'href' => 'support-tickets.php',
                     'icon' => 'fa-life-ring',
                     'label' => 'Support',
@@ -253,6 +259,12 @@ include __DIR__ . '/includes/header.php';
                     'icon' => 'fa-ticket',
                     'label' => 'Redeem Coupons',
                     'description' => 'Apply promo codes for bonuses'
+                ],
+                [
+                    'href' => 'badge-manager.php',
+                    'icon' => 'fa-award',
+                    'label' => 'Badge Manager',
+                    'description' => 'Showcase and activate achievements'
                 ],
                 [
                     'href' => 'profile.php',
