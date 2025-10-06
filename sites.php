@@ -396,9 +396,17 @@ include 'includes/header.php';
                         </div>
                         <div class="col-12 col-lg-2">
                             <label class="form-label text-uppercase small text-muted">View</label>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex gap-2 flex-wrap">
                                 <button type="button" class="view-btn <?php echo $view_mode === 'grid' ? 'active' : ''; ?>" data-view="grid" onclick="toggleView('grid', this)"><i class="fas fa-border-all me-2"></i>Grid</button>
                                 <button type="button" class="view-btn <?php echo $view_mode === 'list' ? 'active' : ''; ?>" data-view="list" onclick="toggleView('list', this)"><i class="fas fa-bars me-2"></i>List</button>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-2">
+                            <label class="form-label text-uppercase small text-muted">Quick Reset</label>
+                            <div class="d-grid">
+                                <button type="button" id="clearFiltersBtn" class="btn btn-theme btn-outline-glass" onclick="clearFilters()">
+                                    <i class="fas fa-broom me-2"></i>Clear Filters
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -1012,8 +1020,9 @@ function loadSitesAjax() {
                 if (container) {
                     container.innerHTML = data.sites_html;
                     applyViewMode();
+                    refreshRevealAnimations();
                 }
-                
+
                 // Update pagination
                 const paginationContainer = document.querySelector('.pagination-container');
                 if (paginationContainer) {
@@ -1037,14 +1046,17 @@ function loadSitesAjax() {
                 document.querySelector('.sites-container').scrollIntoView({ behavior: 'smooth', block: 'start' });
             } else {
                 // Handle cases where no sites are found more gracefully
-                document.getElementById('sitesContainer').innerHTML = `
+                const container = document.getElementById('sitesContainer');
+                if (container) {
+                    container.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-search"></i>
                         <h3>No Sites Found</h3>
                         <p>No sites match your current filters. Try adjusting your search criteria.</p>
-                        <button onclick="clearFilters()" class="btn btn-primary">Clear Filters</button>
+                        <button onclick="clearFilters()" class="btn btn-theme btn-gradient"><i class="fas fa-broom me-2"></i>Clear Filters</button>
                     </div>
-                `;
+                    `;
+                }
                 // Clear pagination if no sites
                 const paginationContainer = document.querySelector('.pagination-container');
                 if (paginationContainer) paginationContainer.innerHTML = '';
@@ -1082,16 +1094,45 @@ function clearFilters() {
         per_page: 12,
         view: 'grid'
     };
-    
+
     // Reset form elements
     document.getElementById('categoryFilter').value = 'all';
     document.getElementById('statusFilter').value = 'all';
     document.getElementById('sortFilter').value = 'upvotes';
     document.getElementById('searchInput').value = '';
     document.getElementById('perPageFilter').value = '12';
-    
+
+    const suggestionsContainer = document.getElementById('searchSuggestions');
+    if (suggestionsContainer) {
+        suggestionsContainer.style.display = 'none';
+        suggestionsContainer.innerHTML = '';
+    }
+
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === 'grid');
+    });
+
+    applyViewMode();
+
     updateURL();
     loadSitesAjax();
+}
+
+function refreshRevealAnimations() {
+    const container = document.getElementById('sitesContainer');
+    if (!container) return;
+
+    container.querySelectorAll('.animate-fade-in').forEach(el => {
+        if (!el.classList.contains('is-visible')) {
+            el.classList.add('is-visible');
+        }
+    });
+
+    if (window.AOS && typeof window.AOS.refreshHard === 'function') {
+        window.AOS.refreshHard();
+    } else if (window.AOS && typeof window.AOS.refresh === 'function') {
+        window.AOS.refresh();
+    }
 }
 
 // Utility functions
