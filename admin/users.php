@@ -318,6 +318,36 @@ $users_stmt = $db->prepare($users_query);
 $users_stmt->execute($params);
 $users = $users_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$user_stats_stmt = $db->query(
+    "SELECT 
+        COUNT(*) AS total_users,
+        SUM(CASE WHEN is_banned = 1 THEN 1 ELSE 0 END) AS banned_users,
+        SUM(CASE WHEN is_moderator = 1 THEN 1 ELSE 0 END) AS moderator_users,
+        SUM(CASE WHEN is_admin = 1 THEN 1 ELSE 0 END) AS admin_users,
+        SUM(CASE WHEN is_banned = 0 AND last_active >= DATE_SUB(NOW(), INTERVAL 7 DAY) THEN 1 ELSE 0 END) AS active_week
+     FROM users"
+);
+$user_stats = $user_stats_stmt ? $user_stats_stmt->fetch(PDO::FETCH_ASSOC) : [];
+$user_stats = $user_stats ?: [
+    'total_users' => 0,
+    'banned_users' => 0,
+    'moderator_users' => 0,
+    'admin_users' => 0,
+    'active_week' => 0,
+];
+
+$recent_signups_stmt = $db->query("SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+$recent_signups = $recent_signups_stmt ? (int) $recent_signups_stmt->fetchColumn() : 0;
+
+$top_contributors_stmt = $db->query(
+    "SELECT id, username, avatar, reputation_points, total_reviews, total_submissions
+     FROM users
+     WHERE is_banned = 0
+     ORDER BY reputation_points DESC
+     LIMIT 4"
+);
+$top_contributors = $top_contributors_stmt ? $top_contributors_stmt->fetchAll(PDO::FETCH_ASSOC) : [];
+
 $page_title = 'Users Management - Admin Panel';
 include 'includes/admin_header.php';
 ?>
@@ -337,185 +367,308 @@ include 'includes/admin_header.php';
         </div>
     </div>
 
-            <?php if ($success_message): ?>
-                <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
-            <?php endif; ?>
-            
-            <?php if ($error_message): ?>
-                <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
-            <?php endif; ?>
+    <?php if ($success_message): ?>
+        <div class="alert alert-success shadow-sm border-0"><?php echo htmlspecialchars($success_message); ?></div>
+    <?php endif; ?>
 
-    <!-- Filters -->
+    <?php if ($error_message): ?>
+        <div class="alert alert-danger shadow-sm border-0"><?php echo htmlspecialchars($error_message); ?></div>
+    <?php endif; ?>
+
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Total Members</p>
+                        <p class="metric-value mb-1"><?php echo number_format($user_stats['total_users']); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-user-shield"></i><?php echo number_format($user_stats['admin_users']); ?> admins</span>
+                    </div>
+                    <span class="metric-icon info"><i class="fas fa-users"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">New This Week</p>
+                        <p class="metric-value mb-1"><?php echo number_format($recent_signups); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-user-plus"></i>Fresh arrivals</span>
+                    </div>
+                    <span class="metric-icon success"><i class="fas fa-wand-magic-sparkles"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Active (7 days)</p>
+                        <p class="metric-value mb-1"><?php echo number_format($user_stats['active_week']); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-signal"></i>Engaged right now</span>
+                    </div>
+                    <span class="metric-icon success"><i class="fas fa-chart-line"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Guarded Accounts</p>
+                        <p class="metric-value mb-1"><?php echo number_format($user_stats['banned_users']); ?></p>
+                        <span class="metric-trend down"><i class="fas fa-user-lock"></i>On compliance hold</span>
+                    </div>
+                    <span class="metric-icon danger"><i class="fas fa-user-lock"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="admin-content-wrapper mb-4">
-        <form method="GET" class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Search Users</label>
-                            <input type="text" name="search" class="form-control" 
-                                   placeholder="Username or email..." 
-                                   value="<?php echo htmlspecialchars($search); ?>">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Status</label>
-                            <select name="status" class="form-select">
-                                <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Users</option>
-                                <option value="active" <?php echo $status_filter === 'active' ? 'selected' : ''; ?>>Active Users</option>
-                                <option value="banned" <?php echo $status_filter === 'banned' ? 'selected' : ''; ?>>Banned Users</option>
-                                <option value="moderators" <?php echo $status_filter === 'moderators' ? 'selected' : ''; ?>>Moderators</option>
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="submit" class="btn btn-primary d-block">Filter</button>
-                        </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="admin-section-title">Member Filters</h2>
+                <p class="admin-section-subtitle mb-0">Slice the community by role, health, and engagement.</p>
+            </div>
+        </div>
+        <form method="GET" class="admin-toolbar">
+            <div>
+                <label class="form-label">Search Users</label>
+                <input type="text" name="search" class="form-control" placeholder="Username or email..." value="<?php echo htmlspecialchars($search); ?>">
+            </div>
+            <div>
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Users</option>
+                    <option value="active" <?php echo $status_filter === 'active' ? 'selected' : ''; ?>>Active Users</option>
+                    <option value="banned" <?php echo $status_filter === 'banned' ? 'selected' : ''; ?>>Banned Users</option>
+                    <option value="moderators" <?php echo $status_filter === 'moderators' ? 'selected' : ''; ?>>Moderators</option>
+                </select>
+            </div>
+            <div class="ms-auto">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-flex gap-2">
+                    <a href="users.php" class="btn btn-outline-secondary">Reset</a>
+                    <button type="submit" class="btn btn-primary shadow-hover">Apply</button>
+                </div>
+            </div>
         </form>
     </div>
 
-    <!-- Users Table -->
-    <div class="admin-content-wrapper">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>User</th>
-                                    <th>Level</th>
-                                    <th>Reputation</th>
-                                    <th>Activity</th>
-                                    <th>Wallet</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($users as $user): ?>
-                                <tr>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <img src="../<?php echo htmlspecialchars($user['avatar']); ?>" 
-                                                 class="rounded-circle me-2" width="32" height="32">
-                                            <div>
-                                                <strong><?php echo htmlspecialchars($user['username']); ?></strong>
-                                                <br>
-                                                <small class="text-muted"><?php echo htmlspecialchars($user['email']); ?></small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <?php if ($user['level_name']): ?>
-                                            <span class="badge bg-primary">
-                                                <?php echo $user['badge_icon']; ?> <?php echo htmlspecialchars($user['level_name']); ?>
-                                            </span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <strong><?php echo number_format($user['reputation_points']); ?></strong> pts
-                                    </td>
-                                    <td>
-                                        <small>
-                                            <?php echo $user['total_submissions']; ?> sites<br>
-                                            <?php echo $user['total_reviews_written']; ?> reviews
-                                        </small>
-                                    </td>
-                                    <td>
-                                        $<?php echo number_format($user['credit_balance'], 4); ?>
-                                    </td>
-                                    <td>
-                                        <?php if ($user['is_banned']): ?>
-                                            <span class="badge bg-danger">Banned</span>
-                                            <?php if ($user['ban_reason']): ?>
-                                                <br><small class="text-muted"><?php echo htmlspecialchars($user['ban_reason']); ?></small>
-                                            <?php endif; ?>
-                                        <?php elseif ($user['is_admin']): ?>
-                                            <span class="badge bg-warning">Admin</span>
-                                        <?php elseif ($user['is_moderator']): ?>
-                                            <span class="badge bg-info">Moderator</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-success">Active</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <div class="btn-group-vertical btn-group-sm">
-                                            <button class="btn btn-outline-primary btn-sm" 
-                                                    onclick="editUser(<?php echo htmlspecialchars(json_encode($user)); ?>)">
-                                                <i class="fas fa-edit"></i> Edit User
-                                            </button>
-                                            
-                                            <?php if (!$user['is_admin']): ?>
-                                                <?php if ($user['is_banned']): ?>
-                                                    <form method="POST" class="d-inline">
-                                                        <input type="hidden" name="action" value="unban">
-                                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                        <button type="submit" class="btn btn-success btn-sm">Unban</button>
-                                                    </form>
-                                                <?php else: ?>
-                                                    <button class="btn btn-danger btn-sm" 
-                                                            onclick="banUserWithReason(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')">
-                                                        Ban
-                                                    </button>
-                                                <?php endif; ?>
-                                                
-                                                <?php if ($user['is_moderator']): ?>
-                                                    <form method="POST" class="d-inline">
-                                                        <input type="hidden" name="action" value="remove_moderator">
-                                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                        <button type="submit" class="btn btn-warning btn-sm">Remove Mod</button>
-                                                    </form>
-                                                <?php else: ?>
-                                                    <form method="POST" class="d-inline">
-                                                        <input type="hidden" name="action" value="make_moderator">
-                                                        <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
-                                                        <button type="submit" class="btn btn-info btn-sm">Make Mod</button>
-                                                    </form>
-                                                <?php endif; ?>
-                                                
-                                                <button class="btn btn-secondary btn-sm" 
-                                                        onclick="adjustPoints(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')">
-                                                    Adjust Points
-                                                </button>
-                                                
-                                                <button class="btn btn-outline-info btn-sm" 
-                                                        onclick="viewUserActivity(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username']); ?>')">
-                                                    <i class="fas fa-history"></i> Activity
-                                                </button>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+    <div class="row g-4 mb-4">
+        <div class="col-xl-8">
+            <div class="admin-content-wrapper h-100">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+                    <div>
+                        <h2 class="admin-section-title">Community Leaders</h2>
+                        <p class="admin-section-subtitle mb-0">Highest reputation members driving engagement.</p>
                     </div>
-
-                    <!-- Pagination -->
-                    <?php if ($total_pages > 1): ?>
-                        <nav>
-                            <ul class="pagination justify-content-center">
-                                <?php if ($page > 1): ?>
-                                    <li class="page-item">
-                                        <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>">Previous</a>
-                                    </li>
-                                <?php endif; ?>
-                                
-                                <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                                    <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
-                                        <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>"><?php echo $i; ?></a>
-                                    </li>
-                                <?php endfor; ?>
-                                
-                                <?php if ($page < $total_pages): ?>
-                                    <li class="page-item">
-                                        <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>">Next</a>
-                                    </li>
-                                <?php endif; ?>
-                            </ul>
-                        </nav>
-                    <?php endif; ?>
                 </div>
+                <?php if (!empty($top_contributors)): ?>
+                    <div class="admin-leaderboard">
+                        <?php foreach ($top_contributors as $index => $leader): ?>
+                            <?php $leaderAvatar = !empty($leader['avatar']) ? $leader['avatar'] : 'assets/images/default-avatar.png'; ?>
+                            <div class="admin-leader-item">
+                                <span class="admin-leader-rank"><?php echo $index + 1; ?></span>
+                                <span class="avatar-ring sm">
+                                    <img src="../<?php echo htmlspecialchars($leaderAvatar); ?>" alt="<?php echo htmlspecialchars($leader['username']); ?>">
+                                </span>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <strong><?php echo htmlspecialchars($leader['username']); ?></strong>
+                                        <span class="status-chip success"><i class="fas fa-bolt"></i><?php echo number_format($leader['reputation_points']); ?> pts</span>
+                                    </div>
+                                    <div class="admin-leader-meta">
+                                        <span><?php echo number_format($leader['total_reviews']); ?> reviews</span>
+                                        <span>•</span>
+                                        <span><?php echo number_format($leader['total_submissions']); ?> sites</span>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php else: ?>
+                    <div class="admin-subtle-card text-center">
+                        <h6 class="mb-1">No leaders yet</h6>
+                        <p class="mb-0">As users engage the leaderboard will populate automatically.</p>
+                    </div>
+                <?php endif; ?>
             </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="admin-subtle-card h-100">
+                <h6>Moderation Radar</h6>
+                <ul class="admin-quick-list mb-0">
+                    <li><span>Moderators on duty</span><strong><?php echo number_format($user_stats['moderator_users']); ?></strong></li>
+                    <li><span>Admins</span><strong><?php echo number_format($user_stats['admin_users']); ?></strong></li>
+                    <li><span>Accounts on watch</span><strong><?php echo number_format($user_stats['banned_users']); ?></strong></li>
+                    <li><span>New entrants (7d)</span><strong><?php echo number_format($recent_signups); ?></strong></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="admin-content-wrapper">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="admin-section-title">User Directory</h2>
+                <p class="admin-section-subtitle mb-0">Viewing <?php echo number_format($total_users); ?> accounts (page <?php echo $page; ?> of <?php echo max($total_pages, 1); ?>).</p>
+            </div>
+        </div>
+
+        <?php if (!empty($users)): ?>
+            <div class="table-responsive">
+                <table class="table table-hover admin-table align-middle">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Level</th>
+                            <th>Reputation</th>
+                            <th>Activity</th>
+                            <th>Wallet</th>
+                            <th>Status</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($users as $user): ?>
+                            <?php $avatarPath = !empty($user['avatar']) ? $user['avatar'] : 'assets/images/default-avatar.png'; ?>
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="avatar-ring sm">
+                                            <img src="../<?php echo htmlspecialchars($avatarPath); ?>" alt="<?php echo htmlspecialchars($user['username']); ?>">
+                                        </span>
+                                        <div>
+                                            <strong><?php echo htmlspecialchars($user['username']); ?></strong>
+                                            <div class="table-meta"><?php echo htmlspecialchars($user['email']); ?></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <?php if ($user['level_name']): ?>
+                                        <span class="status-chip info"><i class="fas fa-medal"></i><?php echo htmlspecialchars($user['level_name']); ?></span>
+                                    <?php else: ?>
+                                        <span class="table-meta">—</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <strong><?php echo number_format($user['reputation_points']); ?></strong>
+                                    <div class="table-meta">Reviews: <?php echo number_format($user['total_reviews_written']); ?></div>
+                                </td>
+                                <td>
+                                    <div class="table-meta">Sites: <?php echo number_format($user['total_submissions']); ?></div>
+                                    <div class="table-meta">Last active: <?php echo $user['last_active'] ? date('M j, Y', strtotime($user['last_active'])) : 'No activity'; ?></div>
+                                </td>
+                                <td>
+                                    <strong><?php echo number_format($user['credit_balance'], 2); ?></strong>
+                                    <div class="table-meta">Wallet credits</div>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <?php if ($user['is_banned']): ?>
+                                            <span class="status-chip danger"><i class="fas fa-user-slash"></i>Banned</span>
+                                        <?php else: ?>
+                                            <span class="status-chip success"><i class="fas fa-user-check"></i>Active</span>
+                                        <?php endif; ?>
+                                        <?php if ($user['is_admin']): ?>
+                                            <span class="status-chip warning"><i class="fas fa-crown"></i>Admin</span>
+                                        <?php endif; ?>
+                                        <?php if ($user['is_moderator']): ?>
+                                            <span class="status-chip info"><i class="fas fa-shield-halved"></i>Moderator</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php if ($user['is_banned'] && $user['ban_reason']): ?>
+                                        <div class="table-meta text-danger fw-semibold mt-1"><?php echo htmlspecialchars($user['ban_reason']); ?></div>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-end">
+                                    <div class="table-action-group justify-content-end">
+                                        <button type="button" class="btn btn-outline-primary btn-sm shadow-hover" onclick="editUser(<?php echo htmlspecialchars(json_encode($user), ENT_QUOTES, 'UTF-8'); ?>)">
+                                            <i class="fas fa-user-cog"></i> Edit
+                                        </button>
+
+                                        <?php if (!$user['is_admin']): ?>
+                                            <?php if ($user['is_banned']): ?>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="action" value="unban">
+                                                    <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                    <button type="submit" class="btn btn-success btn-sm shadow-hover">Unban</button>
+                                                </form>
+                                            <?php else: ?>
+                                                <button type="button" class="btn btn-danger btn-sm shadow-hover" onclick="banUserWithReason(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8'); ?>')">
+                                                    Ban
+                                                </button>
+                                            <?php endif; ?>
+
+                                            <?php if ($user['is_moderator']): ?>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="action" value="remove_moderator">
+                                                    <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                    <button type="submit" class="btn btn-warning btn-sm shadow-hover">Remove Mod</button>
+                                                </form>
+                                            <?php else: ?>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="action" value="make_moderator">
+                                                    <input type="hidden" name="user_id" value="<?php echo $user['id']; ?>">
+                                                    <button type="submit" class="btn btn-info btn-sm shadow-hover">Make Mod</button>
+                                                </form>
+                                            <?php endif; ?>
+
+                                            <button type="button" class="btn btn-secondary btn-sm shadow-hover" onclick="adjustPoints(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8'); ?>')">
+                                                Adjust Points
+                                            </button>
+
+                                            <button type="button" class="btn btn-outline-info btn-sm shadow-hover" onclick="viewUserActivity(<?php echo $user['id']; ?>, '<?php echo htmlspecialchars($user['username'], ENT_QUOTES, 'UTF-8'); ?>')">
+                                                <i class="fas fa-history"></i> Activity
+                                            </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <?php if ($total_pages > 1): ?>
+                <nav>
+                    <ul class="pagination justify-content-center">
+                        <?php if ($page > 1): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>">Previous</a>
+                            </li>
+                        <?php endif; ?>
+
+                        <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
+                            <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
+                                <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>"><?php echo $i; ?></a>
+                            </li>
+                        <?php endfor; ?>
+
+                        <?php if ($page < $total_pages): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>">Next</a>
+                            </li>
+                        <?php endif; ?>
+                    </ul>
+                </nav>
+            <?php endif; ?>
+        <?php else: ?>
+            <div class="admin-subtle-card text-center">
+                <i class="fas fa-users-slash fa-2x text-muted mb-2"></i>
+                <h6>No users match your filters</h6>
+                <p class="mb-0">Try adjusting your search criteria to surface more accounts.</p>
+            </div>
+        <?php endif; ?>
+    </div>
 </main>
 
 <!-- Ban User Modal -->
 <div class="modal fade" id="banUserModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog admin-modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Ban User Account</h5>
@@ -542,8 +695,8 @@ include 'includes/admin_header.php';
                         </select>
                     </div>
                     
-                    <div class="alert alert-warning">
-                        <strong>Warning:</strong> This action will permanently ban the user account. 
+                    <div class="alert alert-warning shadow-sm border-0">
+                        <strong>Warning:</strong> This action will permanently ban the user account.
                         The user will see this reason when attempting to log in.
                     </div>
                 </div>
@@ -558,7 +711,7 @@ include 'includes/admin_header.php';
 
 <!-- Adjust Points Modal -->
 <div class="modal fade" id="adjustPointsModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog admin-modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Adjust User Points</h5>
@@ -594,7 +747,7 @@ include 'includes/admin_header.php';
 
 <!-- Edit User Modal -->
 <div class="modal fade" id="editUserModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
+    <div class="modal-dialog modal-xl admin-modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Edit User Details</h5>
@@ -688,7 +841,7 @@ include 'includes/admin_header.php';
 
 <!-- User Activity Modal -->
 <div class="modal fade" id="userActivityModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg admin-modal">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">User Activity History</h5>
