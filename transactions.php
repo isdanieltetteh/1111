@@ -39,6 +39,33 @@ function fetchAllRows(PDO $db, string $query, array $params = []): array {
 }
 
 $credit_rows = fetchAllRows($db, "SELECT id, amount, type, description, status, transaction_id, created_at FROM credit_transactions WHERE user_id = :user_id ORDER BY created_at DESC", [':user_id' => $user_id]);
+$promotion_rows = fetchAllRows(
+    $db,
+    "SELECT sp.id, sp.site_id, sp.promotion_type, sp.amount_paid, sp.duration_days, sp.payment_status, sp.created_at, s.name AS site_name
+     FROM site_promotions sp
+     INNER JOIN sites s ON sp.site_id = s.id
+     WHERE sp.user_id = :user_id
+     ORDER BY sp.created_at DESC",
+    [':user_id' => $user_id]
+);
+$feature_rows = fetchAllRows(
+    $db,
+    "SELECT sf.id, sf.site_id, sf.feature_type, sf.created_at, s.name AS site_name, pricing.price
+     FROM site_features sf
+     INNER JOIN sites s ON sf.site_id = s.id
+     LEFT JOIN (
+         SELECT fp.feature_type, fp.price
+         FROM feature_pricing fp
+         INNER JOIN (
+             SELECT feature_type, MAX(id) AS latest_id
+             FROM feature_pricing
+             GROUP BY feature_type
+         ) latest ON latest.feature_type = fp.feature_type AND latest.latest_id = fp.id
+     ) AS pricing ON pricing.feature_type = sf.feature_type
+     WHERE s.submitted_by = :user_id
+     ORDER BY sf.created_at DESC",
+    [':user_id' => $user_id]
+);
 $deposit_rows = fetchAllRows($db, "SELECT id, amount, currency, payment_method, description, status, faucetpay_id, bitpay_invoice_id, coupon_redemption_id, credits_amount, created_at FROM deposit_transactions WHERE user_id = :user_id ORDER BY created_at DESC", [':user_id' => $user_id]);
 $points_rows = fetchAllRows($db, "SELECT id, points, type, description, reference_id, reference_type, created_at FROM points_transactions WHERE user_id = :user_id ORDER BY created_at DESC", [':user_id' => $user_id]);
 $withdrawal_rows = fetchAllRows($db, "SELECT id, amount, net_amount, points_redeemed, withdrawal_method, wallet_address, currency, faucetpay_email, withdrawal_fee, status, created_at FROM withdrawal_requests WHERE user_id = :user_id ORDER BY created_at DESC", [':user_id' => $user_id]);
@@ -51,14 +78,26 @@ foreach ($credit_rows as $row) {
     switch ($row['type']) {
         case 'deposit':
         case 'refund':
-            $credits_added += $amount;
+            if ($amount > 0) {
+                $credits_added += $amount;
+            }
             break;
         case 'spent':
-            $credits_spent += $amount;
+            $credits_spent += abs($amount);
             break;
         case 'withdrawal':
-            $credits_withdrawn += $amount;
+            $credits_withdrawn += abs($amount);
             break;
+    }
+}
+foreach ($promotion_rows as $row) {
+    if (($row['payment_status'] ?? '') === 'completed') {
+        $credits_spent += (float)$row['amount_paid'];
+    }
+}
+foreach ($feature_rows as $row) {
+    if (isset($row['price'])) {
+        $credits_spent += max(0.0, (float)$row['price']);
     }
 }
 
@@ -98,6 +137,51 @@ $credit_entries = array_map(function ($row) {
         ])
     ];
 }, $credit_rows);
+
+$promotion_entries = array_map(function ($row) {
+    $site_name = $row['site_name'] ?: ('Site #' . $row['site_id']);
+    $description = ucfirst($row['promotion_type']) . ' promotion for ' . $site_name;
+    return [
+        'id' => 'promotion-' . $row['id'],
+        'category' => 'Credits',
+        'sub_type' => $row['promotion_type'] . '_promotion',
+        'description' => $description,
+        'amount' => -abs((float)$row['amount_paid']),
+        'status' => $row['payment_status'] ?: 'completed',
+        'created_at' => $row['created_at'],
+        'reference' => 'Promotion #' . $row['id'],
+        'tags' => array_filter([
+            'Site: ' . $site_name,
+            ucfirst($row['promotion_type']),
+            $row['duration_days'] ? $row['duration_days'] . ' days' : null
+        ])
+    ];
+}, $promotion_rows);
+
+$feature_entries = array_map(function ($row) {
+    $site_name = $row['site_name'] ?: ('Site #' . $row['site_id']);
+    $price = isset($row['price']) ? (float)$row['price'] : 0.0;
+    $description = ucfirst(str_replace('_', ' ', $row['feature_type'])) . ' feature for ' . $site_name;
+    return [
+        'id' => 'feature-' . $row['id'],
+        'category' => 'Credits',
+        'sub_type' => $row['feature_type'] . '_feature',
+        'description' => $description,
+        'amount' => -abs($price),
+        'status' => 'completed',
+        'created_at' => $row['created_at'],
+        'reference' => 'Feature #' . $row['id'],
+        'tags' => array_filter([
+            'Site: ' . $site_name,
+            ucfirst(str_replace('_', ' ', $row['feature_type']))
+        ])
+    ];
+}, $feature_rows);
+
+$credit_entries = array_merge($credit_entries, $promotion_entries, $feature_entries);
+usort($credit_entries, function ($a, $b) {
+    return strtotime($b['created_at']) <=> strtotime($a['created_at']);
+});
 
 $deposit_entries = array_map(function ($row) {
     $reference = $row['bitpay_invoice_id'] ?: $row['faucetpay_id'];
