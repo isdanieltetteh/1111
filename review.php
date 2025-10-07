@@ -651,7 +651,10 @@ function truncateText($text, $length = 60) {
                                                 </div>
                                                 <div class="review-meta">
                                                     <span><i class="fas fa-clock me-1"></i><?php echo time_ago($review['created_at']); ?></span>
-                                                    <span><?php echo str_repeat('★', $review['rating']) . str_repeat('☆', 5 - $review['rating']); ?></span>
+                                                    <div class="review-meta-rating" aria-label="<?php echo $review['rating']; ?> out of 5 stars">
+                                                        <?php echo render_stars($review['rating'], '1rem'); ?>
+                                                        <span class="rating-count"><?php echo $review['rating']; ?>/5</span>
+                                                    </div>
                                                     <span><i class="fas fa-medal me-1"></i><?php echo number_format($review['reputation_points']); ?> rep</span>
                                                 </div>
                                             </div>
