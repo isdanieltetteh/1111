@@ -13,7 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $input = json_decode(file_get_contents('php://input'), true);
 $url = trim($input['url'] ?? '');
-$has_referral_feature = $input['has_referral_feature'] ?? false;
 
 if (empty($url)) {
     echo json_encode(['valid' => false, 'message' => 'URL is required']);
@@ -38,21 +37,12 @@ try {
     $existing_site = $duplicate_stmt->fetch(PDO::FETCH_ASSOC);
     
     if ($existing_site) {
-        if ($has_referral_feature) {
-            echo json_encode([
-                'valid' => true,
-                'duplicate' => true,
-                'message' => 'URL exists but you can submit with referral link feature using a different title',
-                'existing_name' => $existing_site['name']
-            ]);
-        } else {
-            echo json_encode([
-                'valid' => false,
-                'duplicate' => true,
-                'message' => 'This URL already exists. Purchase "Use Referral Link" feature to submit with different title.',
-                'existing_name' => $existing_site['name']
-            ]);
-        }
+        echo json_encode([
+            'valid' => false,
+            'duplicate' => true,
+            'message' => 'This URL already exists in our directory. Please submit a unique site.',
+            'existing_name' => $existing_site['name']
+        ]);
         exit();
     }
     

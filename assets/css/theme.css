@@ -982,6 +982,17 @@ a:hover {
     color: var(--color-text);
 }
 
+.form-control::placeholder,
+textarea::placeholder,
+.form-select::placeholder {
+    color: rgba(226, 232, 240, 0.72);
+    opacity: 1;
+}
+
+.form-text {
+    color: rgba(226, 232, 240, 0.78);
+}
+
 .form-control:focus,
 .form-select:focus {
     border-color: rgba(56, 189, 248, 0.75);
