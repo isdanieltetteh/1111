@@ -1193,7 +1193,9 @@ INSERT INTO `site_upload_settings` (`id`, `max_file_size`, `allowed_types`, `cre
 CREATE TABLE `support_replies` (
   `id` int(11) NOT NULL,
   `ticket_id` int(11) NOT NULL,
-  `admin_id` int(11) NOT NULL,
+  `admin_id` int(11) DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `sender_type` enum('admin','user','system') DEFAULT 'admin',
   `message` text NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -2018,7 +2020,8 @@ ALTER TABLE `site_upload_settings`
 ALTER TABLE `support_replies`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_ticket` (`ticket_id`),
-  ADD KEY `idx_admin` (`admin_id`);
+  ADD KEY `idx_admin` (`admin_id`),
+  ADD KEY `idx_user` (`user_id`);
 
 --
 -- Indexes for table `support_tickets`
@@ -2737,8 +2740,9 @@ ALTER TABLE `site_promotions`
 -- Constraints for table `support_replies`
 --
 ALTER TABLE `support_replies`
-  ADD CONSTRAINT `fk_support_replies_admin` FOREIGN KEY (`admin_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fk_support_replies_ticket` FOREIGN KEY (`ticket_id`) REFERENCES `support_tickets` (`id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `fk_support_replies_admin` FOREIGN KEY (`admin_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  ADD CONSTRAINT `fk_support_replies_ticket` FOREIGN KEY (`ticket_id`) REFERENCES `support_tickets` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_support_replies_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 --
 -- Constraints for table `support_tickets`

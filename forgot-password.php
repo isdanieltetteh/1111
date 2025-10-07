@@ -2,10 +2,12 @@
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/MailService.php';
 
 $auth = new Auth();
 $database = new Database();
 $db = $database->getConnection();
+$mailer = MailService::getInstance();
 
 $success_message = '';
 $error_message = '';
@@ -73,11 +75,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $token_stmt->bindParam(':expires_at', $expires_at);
                     $token_stmt->execute();
                     
-                    // Send reset email (simplified - implement proper email sending)
                     $reset_link = SITE_URL . "/reset-password?token=" . $token;
-                    
-                    // For now, show the link (in production, send via email)
-                    $success_message = "Password reset link: <a href='{$reset_link}' style='color: #3b82f6;'>{$reset_link}</a>";
+
+                    $recipient = [$email => $user['username'] ?? $email];
+                    $html_body = '<p>Hi ' . htmlspecialchars($user['username'] ?? 'there', ENT_QUOTES, 'UTF-8') . ',</p>' .
+                                 '<p>You requested to reset your password for ' . SITE_NAME . '. Click the button below to create a new one.</p>' .
+                                 '<p><a href="' . htmlspecialchars($reset_link, ENT_QUOTES, 'UTF-8') . '" style="background:#2563eb;color:#fff;padding:12px 18px;border-radius:6px;text-decoration:none;">Reset Password</a></p>' .
+                                 '<p>If you did not request this, please ignore this email.</p>' .
+                                 '<p>Thanks,<br>' . SITE_NAME . ' Support</p>';
+
+                    $mailer->send(
+                        $recipient,
+                        '[' . SITE_NAME . '] Password reset instructions',
+                        $html_body,
+                        [
+                            'text' => "Reset your password using this link: {$reset_link}\nIf you did not request this, you can ignore this email.",
+                        ]
+                    );
+
+                    $success_message = 'We sent a password reset link to your email address. Please check your inbox and spam folder.';
                 } else {
                     $error_message = 'No account found with that email address';
                 }

@@ -76,6 +76,53 @@ function is_valid_url($url) {
 }
 
 /**
+ * Create a user notification entry
+ */
+function create_notification(PDO $db, int $user_id, string $title, string $message, string $type = 'info'): bool {
+    try {
+        $query = "INSERT INTO notifications (user_id, title, message, type) VALUES (:user_id, :title, :message, :type)";
+        $stmt = $db->prepare($query);
+        $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+        $stmt->bindParam(':title', $title);
+        $stmt->bindParam(':message', $message);
+        $stmt->bindParam(':type', $type);
+
+        return $stmt->execute();
+    } catch (Exception $e) {
+        error_log('[Notifications] Failed to create notification: ' . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Format ticket status for human readable display
+ */
+function format_ticket_status(string $status): array {
+    $status = strtolower($status);
+    $map = [
+        'open' => ['label' => 'Awaiting Support', 'class' => 'badge bg-warning text-dark'],
+        'replied' => ['label' => 'Awaiting Your Reply', 'class' => 'badge bg-info text-dark'],
+        'closed' => ['label' => 'Closed', 'class' => 'badge bg-secondary'],
+    ];
+
+    return $map[$status] ?? ['label' => ucfirst($status), 'class' => 'badge bg-light text-dark'];
+}
+
+/**
+ * Format ticket priority for display
+ */
+function format_ticket_priority(string $priority): array {
+    $priority = strtolower($priority);
+    $map = [
+        'low' => ['label' => 'Low', 'class' => 'badge bg-success-subtle text-success'],
+        'medium' => ['label' => 'Medium', 'class' => 'badge bg-warning-subtle text-warning'],
+        'high' => ['label' => 'High', 'class' => 'badge bg-danger'],
+    ];
+
+    return $map[$priority] ?? ['label' => ucfirst($priority), 'class' => 'badge bg-light text-dark'];
+}
+
+/**
  * Generate referral code from username
  */
 function generate_referral_code($username) {

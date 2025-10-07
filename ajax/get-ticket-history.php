@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/support_helpers.php';
 
 header('Content-Type: application/json');
 
@@ -24,8 +25,10 @@ try {
     $database = new Database();
     $db = $database->getConnection();
     
+    ensure_support_schema($db);
+
     // Get ticket details
-    $ticket_query = "SELECT st.*, u.username, u.email 
+    $ticket_query = "SELECT st.*, u.username, u.email
                      FROM support_tickets st
                      LEFT JOIN users u ON st.user_id = u.id
                      WHERE st.id = :ticket_id";
@@ -40,9 +43,10 @@ try {
     }
     
     // Get replies
-    $replies_query = "SELECT sr.*, u.username as admin_username
+    $replies_query = "SELECT sr.*, admin.username as admin_username, member.username as user_username
                       FROM support_replies sr
-                      JOIN users u ON sr.admin_id = u.id
+                      LEFT JOIN users admin ON sr.admin_id = admin.id
+                      LEFT JOIN users member ON sr.user_id = member.id
                       WHERE sr.ticket_id = :ticket_id
                       ORDER BY sr.created_at ASC";
     $replies_stmt = $db->prepare($replies_query);
@@ -65,9 +69,16 @@ try {
     
     // Replies
     foreach ($replies as $reply) {
-        $html .= '<div class="mb-3 p-3 border rounded bg-light">';
+        $senderType = $reply['sender_type'] ?? 'admin';
+        $isAdmin = $senderType === 'admin';
+        $authorName = $isAdmin
+            ? ($reply['admin_username'] ?? 'Support Team')
+            : ($reply['user_username'] ?? $ticket['name']);
+        $cardClass = $isAdmin ? 'bg-light border-start border-3 border-primary' : 'bg-white';
+
+        $html .= '<div class="mb-3 p-3 border rounded ' . $cardClass . '">';
         $html .= '<div class="d-flex justify-content-between align-items-center mb-2">';
-        $html .= '<strong class="text-primary">' . htmlspecialchars($reply['admin_username']) . ' (Admin)</strong>';
+        $html .= '<strong class="' . ($isAdmin ? 'text-primary' : 'text-success') . '">' . htmlspecialchars($authorName) . ($isAdmin ? ' (Admin)' : '') . '</strong>';
         $html .= '<small class="text-muted">' . date('M j, Y g:i A', strtotime($reply['created_at'])) . '</small>';
         $html .= '</div>';
         $html .= '<p class="mb-0">' . nl2br(htmlspecialchars($reply['message'])) . '</p>';

@@ -111,6 +111,7 @@
     }
 </script>
 <script src="assets/js/main.js"></script>
+<script src="assets/js/notifications.js"></script>
 
 <script>
     document.getElementById('footerNewsletterForm').addEventListener('submit', function(e) {

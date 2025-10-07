@@ -58,6 +58,13 @@ if (!isset($current_page)) $current_page = '';
                     <?php if (isset($auth) && $auth instanceof Auth && $auth->isLoggedIn()): ?>
                         <li class="nav-item"><a class="nav-link <?php echo $current_page === 'dashboard' ? 'active' : ''; ?>" href="dashboard">Dashboard</a></li>
                         <li class="nav-item"><a class="nav-link <?php echo $current_page === 'coupons' ? 'active' : ''; ?>" href="redeem-coupon">Coupons</a></li>
+                        <li class="nav-item position-relative">
+                            <a class="nav-link d-flex align-items-center gap-2 <?php echo $current_page === 'notifications' ? 'active' : ''; ?>" href="notifications.php">
+                                <i class="fas fa-bell"></i>
+                                <span class="d-lg-none">Notifications</span>
+                                <span class="notification-indicator" data-notification-badge hidden>0</span>
+                            </a>
+                        </li>
                         <?php if ($auth->isAdmin()): ?>
                             <li class="nav-item"><a class="nav-link" href="admin/dashboard">Admin</a></li>
                         <?php endif; ?>
