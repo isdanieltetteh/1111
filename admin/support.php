@@ -132,7 +132,7 @@ $ticket_stats_query = "SELECT
     SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open_tickets,
     SUM(CASE WHEN status = 'replied' THEN 1 ELSE 0 END) as replied_tickets,
     SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END) as closed_tickets,
-    SUM(CASE WHEN priority = 'high' THEN 1 ELSE 0 END) as high_priority
+    SUM(CASE WHEN priority = 'high' THEN 1 ELSE 0 END) as `high_priority`
     FROM support_tickets";
 $ticket_stats_stmt = $db->prepare($ticket_stats_query);
 $ticket_stats_stmt->execute();
