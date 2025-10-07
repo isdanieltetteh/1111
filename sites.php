@@ -595,26 +595,22 @@ include 'includes/header.php';
     .sites-list {
         display: flex;
         flex-direction: column;
-        gap: 1.5rem;
+        gap: 1.75rem;
     }
 
     .sites-list .site-card {
-        display: flex;
-        flex-direction: row;
-        align-items: stretch;
-        gap: 1.75rem;
-        padding: 1.75rem;
+        padding: 2rem;
     }
 
-    .sites-list .site-header {
-        flex: 0 0 260px;
-        display: flex;
-        align-items: center;
-        gap: 1.25rem;
+    .sites-list .site-card.list-view {
+        display: grid;
+        grid-template-columns: minmax(0, 1.75fr) minmax(0, 1.15fr);
+        gap: 2rem;
+        align-items: start;
     }
 
-    .sites-list .site-card-body {
-        flex: 1 1 auto;
+    .site-card.list-view .site-card-body {
+        display: contents;
     }
 
     .site-card .site-card-body {
@@ -623,10 +619,16 @@ include 'includes/header.php';
         gap: 1.5rem;
     }
 
-    .site-card .site-card-stats {
+    .site-card.list-view .site-header {
+        margin-bottom: 0.75rem;
+        align-items: flex-start;
+        gap: 1.5rem;
+    }
+
+    .site-card.list-view .site-info {
         display: flex;
         flex-direction: column;
-        gap: 1.25rem;
+        gap: 0.45rem;
     }
 
     .site-card .site-description {
@@ -634,15 +636,29 @@ include 'includes/header.php';
         line-height: 1.6;
     }
 
-    .site-card .site-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
+    .site-card.list-view .site-description {
+        grid-column: 1;
+        grid-row: 2;
+        margin: 0;
+        font-size: 0.95rem;
+        color: rgba(226, 232, 240, 0.78);
     }
 
-    .site-card .vote-buttons {
+    .site-card .site-card-stats {
         display: flex;
-        gap: 0.75rem;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .site-card.list-view .site-card-stats {
+        grid-column: 2;
+        grid-row: 1;
+        padding: 1.5rem;
+        background: rgba(15, 23, 42, 0.55);
+        border-radius: var(--radius-md);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.12);
+        gap: 1.35rem;
     }
 
     .site-card .metrics-left {
@@ -652,10 +668,43 @@ include 'includes/header.php';
         align-items: center;
     }
 
-    .site-card .status-holder {
+    .site-card.list-view .site-metrics {
+        justify-content: flex-start;
+        gap: 1.15rem;
+    }
+
+    .site-card.list-view .status-holder {
+        justify-content: flex-start;
+    }
+
+    .site-card .site-actions {
         display: flex;
-        justify-content: flex-end;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .site-card.list-view .site-actions {
+        grid-column: 2;
+        grid-row: 2;
+        padding: 1.25rem 1.5rem;
+        background: rgba(15, 23, 42, 0.45);
+        border-radius: var(--radius-md);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
         align-items: center;
+        gap: 1.5rem;
+        flex-wrap: wrap;
+    }
+
+    .site-card .vote-buttons {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .site-card.list-view .vote-buttons {
+        gap: 1rem;
     }
 
     @media (min-width: 768px) {
@@ -670,6 +719,17 @@ include 'includes/header.php';
             justify-content: space-between;
             align-items: center;
         }
+
+        .site-card.list-view .site-card-stats {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+    }
+
+    @media (max-width: 1199.98px) {
+        .sites-list .site-card.list-view {
+            grid-template-columns: minmax(0, 1.6fr) minmax(0, 1.1fr);
+        }
     }
 
     @media (max-width: 991.98px) {
@@ -677,12 +737,30 @@ include 'includes/header.php';
             grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
         }
 
-        .sites-list .site-card {
-            flex-direction: column;
+        .sites-list .site-card.list-view {
+            grid-template-columns: 1fr;
         }
 
-        .sites-list .site-header {
-            flex: 1 1 auto;
+        .site-card.list-view .site-description {
+            grid-column: 1;
+            grid-row: auto;
+        }
+
+        .site-card.list-view .site-card-stats,
+        .site-card.list-view .site-actions {
+            grid-column: 1;
+            grid-row: auto;
+        }
+
+        .site-card.list-view .site-card-stats {
+            flex-direction: row;
+            flex-wrap: wrap;
+            gap: 1.25rem;
+        }
+
+        .site-card.list-view .site-actions {
+            flex-direction: column;
+            align-items: stretch;
         }
     }
 
@@ -691,8 +769,9 @@ include 'includes/header.php';
             gap: 0.6rem;
         }
 
-        .site-card .site-actions {
-            align-items: stretch;
+        .site-card.list-view .vote-buttons {
+            width: 100%;
+            justify-content: space-between;
         }
     }
 </style>
