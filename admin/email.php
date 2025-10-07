@@ -49,17 +49,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $users_stmt = $db->prepare($users_query);
                 $users_stmt->execute();
                 $recipients = $users_stmt->fetchAll(PDO::FETCH_ASSOC);
+            } elseif ($target === 'new_users') {
+                $users_query = "SELECT email, username FROM users WHERE is_banned = 0 AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+                $users_stmt = $db->prepare($users_query);
+                $users_stmt->execute();
+                $recipients = $users_stmt->fetchAll(PDO::FETCH_ASSOC);
             }
             
             if (!empty($recipients)) {
                 // Log email campaign
+                $recipient_count = count($recipients); // Store count in a variable
                 $campaign_query = "INSERT INTO email_campaigns (subject, message, target_audience, recipient_count, sent_by) 
                                   VALUES (:subject, :message, :target, :count, :admin_id)";
                 $campaign_stmt = $db->prepare($campaign_query);
                 $campaign_stmt->bindParam(':subject', $subject);
                 $campaign_stmt->bindParam(':message', $message);
                 $campaign_stmt->bindParam(':target', $target);
-                $campaign_stmt->bindParam(':count', count($recipients));
+                $campaign_stmt->bindParam(':count', $recipient_count, PDO::PARAM_INT);
                 $campaign_stmt->bindParam(':admin_id', $_SESSION['user_id']);
                 $campaign_stmt->execute();
                 
@@ -78,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $queue_stmt->execute();
                 }
                 
-                $success_message = 'Email campaign created! ' . count($recipients) . ' emails queued for sending.';
+                $success_message = 'Email campaign created! ' . $recipient_count . ' emails queued for sending.';
             } else {
                 $error_message = 'No recipients found for the selected target';
             }
