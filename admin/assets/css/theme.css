@@ -321,6 +321,12 @@ body {
     color: var(--admin-text);
 }
 
+.admin-metric-card .metric-subtitle {
+    font-size: 0.85rem;
+    color: var(--admin-text-muted);
+    margin-top: 0.5rem;
+}
+
 .admin-metric-card .metric-trend {
     font-size: 0.8rem;
     margin-top: 0.75rem;
@@ -339,6 +345,179 @@ body {
 .metric-trend.down {
     background: rgba(239, 68, 68, 0.15);
     color: var(--admin-danger);
+}
+
+.metric-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 1rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    background: rgba(79, 70, 229, 0.12);
+    color: var(--admin-primary);
+}
+
+.metric-icon.success {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--admin-success);
+}
+
+.metric-icon.warning {
+    background: rgba(245, 158, 11, 0.18);
+    color: var(--admin-warning);
+}
+
+.metric-icon.danger {
+    background: rgba(239, 68, 68, 0.18);
+    color: var(--admin-danger);
+}
+
+.metric-icon.info {
+    background: rgba(14, 165, 233, 0.18);
+    color: var(--admin-info);
+}
+
+.admin-section-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin-bottom: 0.25rem;
+}
+
+.admin-section-subtitle {
+    color: var(--admin-text-muted);
+    margin-bottom: 1.25rem;
+}
+
+.admin-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+    margin-bottom: 1.5rem;
+}
+
+.admin-toolbar .form-control,
+.admin-toolbar .form-select {
+    background: rgba(79, 70, 229, 0.06);
+    border-radius: 0.9rem;
+    border: 1px solid rgba(79, 70, 229, 0.12);
+    color: var(--admin-text);
+}
+
+.admin-toolbar label {
+    font-weight: 600;
+    color: var(--admin-text-muted);
+    font-size: 0.85rem;
+}
+
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+}
+
+.status-chip i {
+    font-size: 0.65rem;
+}
+
+.status-chip.success {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--admin-success);
+}
+
+.status-chip.warning {
+    background: rgba(245, 158, 11, 0.18);
+    color: var(--admin-warning);
+}
+
+.status-chip.danger {
+    background: rgba(239, 68, 68, 0.18);
+    color: var(--admin-danger);
+}
+
+.status-chip.info {
+    background: rgba(14, 165, 233, 0.18);
+    color: var(--admin-info);
+}
+
+.status-chip.muted {
+    background: rgba(107, 114, 128, 0.16);
+    color: var(--admin-secondary);
+}
+
+.table-action-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.table-action-group form {
+    margin: 0;
+}
+
+.table-action-group .btn {
+    border-radius: 0.75rem;
+}
+
+.admin-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    background: rgba(79, 70, 229, 0.08);
+    color: var(--admin-primary);
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.admin-pill .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.admin-table thead th,
+.admin-table tbody td {
+    vertical-align: middle;
+}
+
+.admin-table .avatar-sm {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.admin-table .table-meta {
+    font-size: 0.8rem;
+    color: var(--admin-text-muted);
+}
+
+.admin-subtle-card {
+    background: var(--admin-surface-muted);
+    border-radius: var(--admin-radius-md);
+    padding: 1.25rem;
+    border: 1px dashed rgba(79, 70, 229, 0.25);
+}
+
+.admin-subtle-card h6 {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.admin-subtle-card p {
+    margin-bottom: 0;
+    color: var(--admin-text-muted);
 }
 
 .table {
