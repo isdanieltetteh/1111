@@ -20,14 +20,17 @@ if (!in_array($period, $valid_periods)) $period = 'all_time';
 // Calculate date condition for votes, not site creation, using UTC
 $vote_date_condition = '';
 $vote_join_condition = '';
+$week_start_expr = "DATE_SUB(DATE(UTC_TIMESTAMP()), INTERVAL WEEKDAY(UTC_TIMESTAMP()) DAY)";
+$month_start_expr = "DATE_SUB(DATE(UTC_TIMESTAMP()), INTERVAL DAYOFMONTH(UTC_TIMESTAMP()) - 1 DAY)";
+
 switch ($period) {
     case 'week':
-        $vote_date_condition = "AND v.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 WEEK)";
-        $vote_join_condition = "LEFT JOIN votes v ON s.id = v.site_id AND v.vote_type = 'upvote' AND v.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 WEEK)";
+        $vote_date_condition = "AND v.created_at >= {$week_start_expr}";
+        $vote_join_condition = "LEFT JOIN votes v ON s.id = v.site_id AND v.vote_type = 'upvote' AND v.created_at >= {$week_start_expr}";
         break;
     case 'month':
-        $vote_date_condition = "AND v.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)";
-        $vote_join_condition = "LEFT JOIN votes v ON s.id = v.site_id AND v.vote_type = 'upvote' AND v.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)";
+        $vote_date_condition = "AND v.created_at >= {$month_start_expr}";
+        $vote_join_condition = "LEFT JOIN votes v ON s.id = v.site_id AND v.vote_type = 'upvote' AND v.created_at >= {$month_start_expr}";
         break;
     case 'all_time':
         $vote_join_condition = "LEFT JOIN votes v ON s.id = v.site_id AND v.vote_type = 'upvote'";
@@ -103,9 +106,9 @@ if ($ranking_type === 'users') {
                         LIMIT 15";
     } else {
         // For weekly/monthly, sum reputation points earned during the period from points_transactions
-        $date_condition = $period === 'week' 
-            ? "AND pt.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 WEEK)"
-            : "AND pt.created_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MONTH)";
+        $date_condition = $period === 'week'
+            ? "AND pt.created_at >= {$week_start_expr}"
+            : "AND pt.created_at >= {$month_start_expr}";
         
         $users_query = "SELECT u.*, l.name as level_name, l.badge_icon, l.badge_color,
                         (SELECT COUNT(*) FROM reviews WHERE user_id = u.id AND is_deleted = 0) as total_reviews,
