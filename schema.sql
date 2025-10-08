@@ -417,9 +417,32 @@ CREATE TABLE `email_queue` (
   `recipient_name` varchar(255) DEFAULT NULL,
   `subject` varchar(255) NOT NULL,
   `message` text NOT NULL,
+  `error_message` text DEFAULT NULL,
   `status` enum('pending','sent','failed') DEFAULT 'pending',
   `sent_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `visitor_logs`
+--
+
+CREATE TABLE `visitor_logs` (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `ip_address` varchar(45) NOT NULL,
+  `country` varchar(64) DEFAULT 'Unknown',
+  `page_url` varchar(512) NOT NULL,
+  `referrer` varchar(512) DEFAULT NULL,
+  `user_agent` varchar(512) DEFAULT NULL,
+  `visit_time` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_visit_time` (`visit_time`),
+  KEY `idx_country` (`country`),
+  KEY `idx_referrer` (`referrer`(191)),
+  KEY `idx_page_url` (`page_url`(191)),
+  KEY `idx_ip_time` (`ip_address`,`visit_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
