@@ -183,6 +183,189 @@ a:hover {
     background: rgba(148, 163, 184, 0.12);
 }
 
+.ticket-progress .progress {
+    height: 6px;
+    background-color: rgba(148, 163, 184, 0.15);
+    border-radius: 999px;
+}
+
+.progress.progress-thin {
+    height: 6px;
+    background-color: rgba(148, 163, 184, 0.15);
+    border-radius: 999px;
+}
+
+.progress-thin .progress-bar {
+    border-radius: 999px;
+}
+
+.insight-chip {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    background: linear-gradient(135deg, rgba(15, 31, 63, 0.45), rgba(31, 52, 96, 0.45));
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.insight-chip .icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: rgba(56, 189, 248, 0.45);
+}
+
+.insight-chip .label {
+    display: block;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.insight-chip .value {
+    display: block;
+    font-size: 1.1rem;
+}
+
+.ticket-list {
+    max-height: 480px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.ticket-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.ticket-list::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.25);
+    border-radius: 999px;
+}
+
+.ticket-list-item {
+    display: block;
+    padding: 1rem 1.1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: rgba(12, 25, 52, 0.55);
+    transition: var(--transition-base);
+}
+
+.ticket-list-item:hover {
+    border-color: rgba(56, 189, 248, 0.5);
+    transform: translateY(-2px);
+}
+
+.ticket-list-item.active {
+    border-color: rgba(56, 189, 248, 0.8);
+    background: rgba(56, 189, 248, 0.12);
+    box-shadow: 0 12px 30px rgba(8, 16, 40, 0.35);
+}
+
+.ticket-list-item .badge-pill {
+    border-radius: 999px;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.6rem;
+}
+
+.support-thread {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    background: rgba(9, 20, 42, 0.55);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.support-message {
+    padding: 1.1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    background: rgba(13, 30, 61, 0.65);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.support-message-admin {
+    border-left: 4px solid rgba(56, 189, 248, 0.8);
+    background: rgba(7, 19, 42, 0.85);
+}
+
+.support-message-user {
+    border-left: 4px solid rgba(52, 211, 153, 0.8);
+}
+
+.support-message .support-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: rgba(226, 232, 240, 0.7);
+    margin-bottom: 0.5rem;
+}
+
+.support-message .support-body {
+    color: rgba(248, 250, 252, 0.92);
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+
+.support-reply-form textarea {
+    background: rgba(7, 16, 34, 0.75);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    color: #fff;
+}
+
+.support-reply-form textarea:focus {
+    border-color: rgba(56, 189, 248, 0.7);
+    box-shadow: 0 0 0 0.25rem rgba(56, 189, 248, 0.15);
+}
+
+.empty-state {
+    border-radius: var(--radius-md);
+    background: rgba(9, 20, 42, 0.5);
+    border: 1px dashed rgba(148, 163, 184, 0.3);
+}
+
+.notification-indicator {
+    position: absolute;
+    top: 2px;
+    right: 6px;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--color-danger);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    box-shadow: 0 6px 12px rgba(239, 68, 68, 0.3);
+}
+
+.notification-indicator.pulse {
+    animation: notificationPulse 1.2s ease;
+}
+
+@keyframes notificationPulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
 .page-hero {
     position: relative;
     padding: 6rem 0 4rem;

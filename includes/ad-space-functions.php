@@ -10,47 +10,26 @@
  * Uses rotation algorithm to fairly distribute impressions
  */
 function getActiveAdForSpace($db, $space_id) {
-    $ad_query = "SELECT ua.*
-                 FROM user_advertisements ua
-                 WHERE ua.status = 'active'
-                 AND ua.start_date <= NOW()
-                 AND ua.end_date >= NOW()
-                 AND ua.target_space_id = :space_id
-                 ORDER BY 
-                    CASE ua.visibility_level
-                      WHEN 'premium' THEN 1
-                      ELSE 2
-                    END,
-                    RAND()
-                 LIMIT 1";
-    
-    $ad_stmt = $db->prepare($ad_query);
-    $ad_stmt->bindParam(':space_id', $space_id);
-    $ad_stmt->execute();
-    $ad = $ad_stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if ($ad) {
-        // Increment impression count
-        $impression_query = "UPDATE user_advertisements 
-                            SET impression_count = impression_count + 1 
-                            WHERE id = :ad_id";
-        $impression_stmt = $db->prepare($impression_query);
-        $impression_stmt->bindParam(':ad_id', $ad['id']);
-        $impression_stmt->execute();
-        
-        // Log impression
-        $log_query = "INSERT INTO ad_impressions (ad_id, user_agent, ip_address)
-                     VALUES (:ad_id, :user_agent, :ip_address)";
-        $log_stmt = $db->prepare($log_query);
-        $log_stmt->bindParam(':ad_id', $ad['id']);
-        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
-        $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
-        $log_stmt->bindParam(':user_agent', $user_agent);
-        $log_stmt->bindParam(':ip_address', $ip_address);
-        $log_stmt->execute();
+    require_once __DIR__ . '/ad-manager.php';
+
+    static $managers = [];
+
+    $hash = spl_object_hash($db);
+    if (!isset($managers[$hash])) {
+        $managers[$hash] = new AdManager($db);
     }
-    
-    return $ad;
+
+    $space_query = "SELECT * FROM ad_spaces WHERE space_id = :space_id AND is_enabled = 1";
+    $space_stmt = $db->prepare($space_query);
+    $space_stmt->bindParam(':space_id', $space_id);
+    $space_stmt->execute();
+    $space = $space_stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$space) {
+        return null;
+    }
+
+    return $managers[$hash]->getAdForSpace($space_id, $space);
 }
 
 /**
@@ -103,7 +82,26 @@ function renderAdPlaceholder($space, $options = []) {
         $dimensions = $space['width'] . 'x' . $space['height'];
     }
     
-    $html = '<div class="' . htmlspecialchars($container_class) . ' ad-placeholder" data-space-id="' . htmlspecialchars($space['space_id']) . '" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1)); border: 2px dashed rgba(59, 130, 246, 0.3); border-radius: 0.75rem; padding: 2rem; text-align: center; min-height: 150px; display: flex; align-items: center; justify-content: center;">';
+    $style = 'background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(16, 185, 129, 0.1));'
+        . ' border: 2px dashed rgba(59, 130, 246, 0.3);'
+        . ' border-radius: 0.75rem;'
+        . ' padding: 2rem;'
+        . ' text-align: center;'
+        . ' display: flex;'
+        . ' align-items: center;'
+        . ' justify-content: center;';
+
+    if (!empty($space['width'])) {
+        $style .= ' max-width: ' . (int) $space['width'] . 'px; width: ' . (int) $space['width'] . 'px;';
+    }
+
+    if (!empty($space['height'])) {
+        $style .= ' min-height: ' . (int) $space['height'] . 'px; height: ' . (int) $space['height'] . 'px;';
+    } else {
+        $style .= ' min-height: 150px;';
+    }
+
+    $html = '<div class="' . htmlspecialchars($container_class) . ' ad-placeholder" data-space-id="' . htmlspecialchars($space['space_id']) . '" style="' . $style . '">';
     $html .= '<div class="ad-placeholder-content">';
     $html .= '<i class="fas fa-bullhorn" style="font-size: 2.5rem; color: #3b82f6; margin-bottom: 1rem;"></i>';
     $html .= '<h4 style="font-size: 1.25rem; font-weight: 700; color: #f1f5f9; margin-bottom: 0.5rem;">' . htmlspecialchars($space['space_name']) . '</h4>';

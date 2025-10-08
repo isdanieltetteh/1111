@@ -45,6 +45,9 @@ define('SMTP_HOST', 'mail.faucetguard.live');
 define('SMTP_PORT', 465);
 define('SMTP_USERNAME', 'support@faucetguard.live');
 define('SMTP_PASSWORD', 'Admin@SupportMail1');
+define('SMTP_ENCRYPTION', 'ssl');
+define('SMTP_TIMEOUT', 30);
+define('SMTP_ALLOW_SELF_SIGNED', true);
 define('SMTP_FROM_EMAIL', SITE_EMAIL);
 define('SMTP_FROM_NAME', SITE_NAME);
 
