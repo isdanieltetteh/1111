@@ -86,107 +86,18 @@ include 'includes/header.php';
                             <i class="fas fa-wallet"></i>
                             <span>$<?php echo number_format($user['credits'], 2); ?> credits</span>
                         </div>
-                        <a href="buy-credits.php" class="btn btn-theme btn-gradient mt-3">
-                            <i class="fas fa-credit-card me-2"></i>Buy Credits
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <div class="dev-slot mt-4">Wallet Banner 970x250</div>
-        </div>
-    </section>
-
-    <section class="py-4">
-        <div class="container">
-            <?php
-            $dashboard_nav_links = [
-                [
-                    'href' => 'dashboard.php',
-                    'icon' => 'fa-gauge-high',
-                    'label' => 'Overview',
-                    'description' => 'Insights & rewards summary'
-                ],
-                [
-                    'href' => 'my-submissions.php',
-                    'icon' => 'fa-globe',
-                    'label' => 'My Submissions',
-                    'description' => 'Manage and update your listings'
-                ],
-                [
-                    'href' => 'my-ads.php',
-                    'icon' => 'fa-rectangle-ad',
-                    'label' => 'My Campaigns',
-                    'description' => 'Track ad performance & status'
-                ],
-                [
-                    'href' => 'notifications.php',
-                    'icon' => 'fa-bell',
-                    'label' => 'Notifications',
-                    'description' => 'Review alerts & platform updates'
-                ],
-                [
-                    'href' => 'wallet.php',
-                    'icon' => 'fa-wallet',
-                    'label' => 'Wallet',
-                    'description' => 'Monitor credits & transactions'
-                ],
-                [
-                    'href' => 'support-tickets.php',
-                    'icon' => 'fa-life-ring',
-                    'label' => 'Support',
-                    'description' => 'Submit & follow support tickets'
-                ],
-                [
-                    'href' => 'promote-sites.php',
-                    'icon' => 'fa-rocket',
-                    'label' => 'Promotions',
-                    'description' => 'Boost visibility with premium slots'
-                ],
-                [
-                    'href' => 'buy-credits.php',
-                    'icon' => 'fa-credit-card',
-                    'label' => 'Buy Credits',
-                    'description' => 'Top up instantly for upgrades'
-                ],
-                [
-                    'href' => 'redeem-coupon.php',
-                    'icon' => 'fa-ticket',
-                    'label' => 'Redeem Coupons',
-                    'description' => 'Apply promo codes for bonuses'
-                ],
-                [
-                    'href' => 'profile.php',
-                    'icon' => 'fa-user-gear',
-                    'label' => 'Account Settings',
-                    'description' => 'Update profile & security details'
-                ]
-            ];
-            $dashboard_nav_current = basename($_SERVER['PHP_SELF'] ?? '');
-            ?>
-            <div class="glass-card p-4 p-lg-5 mb-4" data-aos="fade-up">
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-                    <div>
-                        <h2 class="h5 text-white mb-1">Navigate Your Toolkit</h2>
-                        <p class="text-muted mb-0">Quick links to every dashboard feature.</p>
-                    </div>
-                    <a href="transactions" class="btn btn-theme btn-outline-glass btn-sm">
-                        <i class="fas fa-list me-2"></i>View Full History
-                    </a>
-                </div>
-                <div class="row g-3 row-cols-2 row-cols-sm-3 row-cols-lg-4 row-cols-xl-5 dashboard-nav-grid">
-                    <?php foreach ($dashboard_nav_links as $link): ?>
-                        <div class="col">
-                            <a class="dashboard-nav-tile <?php echo $dashboard_nav_current === basename($link['href']) ? 'active' : ''; ?>"
-                               href="<?php echo htmlspecialchars($link['href']); ?>">
-                                <span class="tile-icon"><i class="fas <?php echo htmlspecialchars($link['icon']); ?>"></i></span>
-                                <span class="tile-label"><?php echo htmlspecialchars($link['label']); ?></span>
-                                <span class="tile-desc text-muted"><?php echo htmlspecialchars($link['description']); ?></span>
-                                <span class="tile-arrow"><i class="fas fa-arrow-right"></i></span>
+                        <div class="d-flex flex-wrap gap-2 justify-content-lg-end mt-3">
+                            <a href="transactions.php" class="btn btn-theme btn-outline-glass">
+                                <i class="fas fa-list me-2"></i>View Transactions
+                            </a>
+                            <a href="buy-credits.php" class="btn btn-theme btn-gradient">
+                                <i class="fas fa-credit-card me-2"></i>Buy Credits
                             </a>
                         </div>
-                    <?php endforeach; ?>
-                </div>
+                    </div>
             </div>
+        </div>
+            <div class="ad-slot dev-slot mt-4">Wallet Banner 970x250</div>
         </div>
     </section>
 
@@ -237,7 +148,7 @@ include 'includes/header.php';
                 </div>
             </div>
 
-            <div class="dev-slot2 mb-4">Inline Wallet Ad 728x90</div>
+            <div class="ad-slot dev-slot2 mb-4">Inline Wallet Ad 728x90</div>
 
             <div class="row g-4">
                 <div class="col-lg-6">
@@ -395,7 +306,7 @@ include 'includes/header.php';
                                 <?php endforeach; ?>
                             </div>
                             <div class="text-center mt-4">
-                                <a href="transactions" class="btn btn-theme btn-outline-glass btn-sm"><i class="fas fa-list me-2"></i>See all</a>
+                                <a href="transactions.php" class="btn btn-theme btn-outline-glass btn-sm"><i class="fas fa-list me-2"></i>See all</a>
                             </div>
                         <?php else: ?>
                             <div class="text-center text-muted py-5">
@@ -443,7 +354,7 @@ include 'includes/header.php';
                         </div>
                     </div>
                 </div>
-                <div class="dev-slot1 mt-4">Footer Wallet Ad 970x90</div>
+                <div class="ad-slot dev-slot1 mt-4">Footer Wallet Ad 970x90</div>
             </div>
         </div>
     </section>

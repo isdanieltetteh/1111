@@ -80,10 +80,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $description = trim($_POST['description']);
         $supported_coins = trim($_POST['supported_coins']);
         $backlink_url = trim($_POST['backlink_url']);
-        $referral_link = trim($_POST['referral_link'] ?? '');
         $promotion_type = $_POST['promotion_type'] ?? 'none';
         $promotion_duration = intval($_POST['promotion_duration'] ?? 0);
-        $features = $_POST['features'] ?? [];
+        $allowed_features = ['skip_backlink', 'priority_review'];
+        $features = array_values(array_intersect($allowed_features, (array)($_POST['features'] ?? [])));
+        $referral_link = '';
         
         // Validation
         if (empty($name) || empty($url) || empty($category) || empty($description)) {
@@ -93,25 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } elseif (!in_array($category, ['faucet', 'url_shortener'])) {
             $error_message = 'Please select a valid category';
         } else {
-            $use_referral = in_array('referral_link', $features);
-            $skip_backlink = in_array('skip_backlink', $features);
-            
-            if ($use_referral && !empty($referral_link)) {
-                if (!filter_var($referral_link, FILTER_VALIDATE_URL)) {
-                    $error_message = 'Please enter a valid referral link';
-                } else {
-                    // Extract base domain from both URLs to ensure they're from the same site
-                    $main_domain = parse_url($url, PHP_URL_HOST);
-                    $ref_domain = parse_url($referral_link, PHP_URL_HOST);
-                    
-                    if ($main_domain !== $ref_domain) {
-                        $error_message = 'Referral link must be from the same domain as the main site URL';
-                    }
-                }
-            } elseif ($use_referral && empty($referral_link)) {
-                $error_message = 'Referral link is required when using the referral link feature';
-            }
-            
+            $skip_backlink = in_array('skip_backlink', $features, true);
+
             if (!$skip_backlink) {
                 if (empty($backlink_url)) {
                     $error_message = 'Backlink URL is required (or purchase Skip Backlink feature for $' . number_format($feature_prices['skip_backlink'] ?? 0, 2) . ')';
@@ -121,23 +105,35 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     // Prevent using the same URL as backlink
                     $main_host = parse_url($url, PHP_URL_HOST);
                     $backlink_host = parse_url($backlink_url, PHP_URL_HOST);
-                    
+                    $platform_host = parse_url(SITE_URL, PHP_URL_HOST);
+
+                    $normalizeHost = static function ($value) {
+                        if (!$value) {
+                            return '';
+                        }
+
+                        return preg_replace('/^www\./i', '', strtolower($value));
+                    };
+
                     if ($main_host === $backlink_host) {
                         $error_message = 'Backlink URL cannot be from the same domain as your site. You need to place our link on a different website.';
+                    } elseif ($normalizeHost($backlink_host) === $normalizeHost($platform_host)) {
+                        $error_message = 'Backlink URL cannot be hosted on our domain. Please add it to your own site.';
                     }
                 }
             }
-            
+
             if (empty($error_message)) {
-                // Check for duplicate URL (main URL check, but allow if using referral feature)
-                $duplicate_query = "SELECT id, name FROM sites WHERE url = :url";
+                // Check for duplicate name or URL
+                $duplicate_query = "SELECT id, name, url FROM sites WHERE url = :url OR name = :name";
                 $duplicate_stmt = $db->prepare($duplicate_query);
                 $duplicate_stmt->bindParam(':url', $url);
+                $duplicate_stmt->bindParam(':name', $name);
                 $duplicate_stmt->execute();
                 $existing_site = $duplicate_stmt->fetch(PDO::FETCH_ASSOC);
-                
-                if ($existing_site && !$use_referral) {
-                    $error_message = 'This URL already exists: ' . htmlspecialchars($existing_site['name']) . '. Purchase "Use Referral Link" feature ($' . number_format($feature_prices['referral_link'] ?? 0, 2) . ') to submit with your referral link.';
+
+                if ($existing_site) {
+                    $error_message = 'A site with this name or URL already exists in our directory.';
                 } else {
                     // Calculate total cost
                     $total_cost = 0;
@@ -207,14 +203,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 }
                             }
                             
-                            $final_url = ($use_referral && !empty($referral_link)) ? $referral_link : $url;
-                            
                             // Insert site
                             $insert_query = "INSERT INTO sites (name, url, category, description, supported_coins, logo, backlink_url, referral_link, submitted_by, is_approved) 
                                            VALUES (:name, :url, :category, :description, :supported_coins, :logo, :backlink_url, :referral_link, :user_id, :is_approved)";
                             $insert_stmt = $db->prepare($insert_query);
                             $insert_stmt->bindParam(':name', $name);
-                            $insert_stmt->bindParam(':url', $final_url);
+                            $insert_stmt->bindParam(':url', $url);
                             $insert_stmt->bindParam(':category', $category);
                             $insert_stmt->bindParam(':description', $description);
                             $insert_stmt->bindParam(':supported_coins', $supported_coins);
@@ -418,6 +412,7 @@ include 'includes/header.php';
                                            placeholder="Enter site name"
                                            value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>"
                                            required>
+                                    <div id="nameValidation" class="validation-status mt-2"></div>
                                     <div class="form-text">Use a clear, descriptive brand name.</div>
                                 </div>
                                 <div class="col-md-6">
@@ -468,7 +463,7 @@ include 'includes/header.php';
                             <div class="form-section-header">
                                 <div>
                                     <h3 class="form-section-title">2. Compliance & Backlink</h3>
-                                    <p class="form-section-subtitle">Verify backlink placement and unlock referral tracking if enabled.</p>
+                                    <p class="form-section-subtitle">Verify backlink placement and confirm compliance.</p>
                                 </div>
                             </div>
                             <div class="row g-4">
@@ -488,17 +483,6 @@ include 'includes/header.php';
                                     </div>
                                     <div id="backlinkValidation" class="validation-status mt-2"></div>
                                     <div class="form-text">Backlink must live on a different domain than your submission.</div>
-                                </div>
-                                <div class="col-12" id="referralLinkGroup" style="display: none;">
-                                    <label for="referral_link" class="form-label">Your Referral Link *</label>
-                                    <input type="url"
-                                           id="referral_link"
-                                           name="referral_link"
-                                           class="form-control"
-                                           placeholder="https://yoursite.com/ref/yourcode"
-                                           value="<?php echo htmlspecialchars($_POST['referral_link'] ?? ''); ?>"
-                                           disabled>
-                                    <div class="form-text">Must match the same domain as your main site URL.</div>
                                 </div>
                             </div>
                         </div>
@@ -586,18 +570,6 @@ include 'includes/header.php';
                             </div>
 
                             <div class="option-grid two-col">
-                                <label class="option-tile">
-                                    <input type="checkbox" name="features[]" value="referral_link" id="featureReferral" <?php echo in_array('referral_link', ($_POST['features'] ?? []), true) ? 'checked' : ''; ?>>
-                                    <div class="option-body">
-                                        <div class="d-flex justify-content-between align-items-start">
-                                            <div>
-                                                <div class="option-title">Use Referral Link</div>
-                                                <div class="option-meta">Earn with your referral URL (allows duplicates)</div>
-                                            </div>
-                                            <span class="option-price">$<?php echo number_format($feature_prices['referral_link'] ?? 0, 2); ?></span>
-                                        </div>
-                                    </div>
-                                </label>
                                 <label class="option-tile">
                                     <input type="checkbox" name="features[]" value="skip_backlink" id="featureSkipBacklink" <?php echo in_array('skip_backlink', ($_POST['features'] ?? []), true) ? 'checked' : ''; ?>>
                                     <div class="option-body">
@@ -737,9 +709,6 @@ include 'includes/header.php';
     const backlinkInput = $('#backlink_url');
     const backlinkLabel = $('#backLinkLabel');
     const featureSkipBack = $('#featureSkipBacklink');
-    const featureReferral = $('#featureReferral');
-    const referralInput = $('#referral_link');
-    const referralGroup = $('#referralLinkGroup');
     const logoInput = $('#site_logo');
     const logoPreview = $('#logoPreview');
     const urlInput = $('#url');
@@ -747,6 +716,9 @@ include 'includes/header.php';
     const checkBacklinkBtn = $('#checkBacklinkBtn');
     const nameInput = $('#name');
     const descInput = $('#description');
+
+    let urlCheckTimer;
+    let nameCheckTimer;
 
     function showValidation(elementId, type, message) {
         const el = $(elementId);
@@ -776,6 +748,7 @@ include 'includes/header.php';
             if (data.success) {
                 if (data.title && !nameInput.value.trim()) {
                     nameInput.value = data.title;
+                    checkSiteNameAvailability();
                 }
                 if (data.description && !descInput.value.trim()) {
                     descInput.value = data.description;
@@ -801,6 +774,7 @@ include 'includes/header.php';
                     }
                 }
                 showValidation('#urlValidation', 'success', 'Metadata fetched successfully!');
+                checkSiteUrlAvailability();
             } else {
                 showValidation('#urlValidation', 'error', data.error || 'Could not fetch metadata');
             }
@@ -821,9 +795,24 @@ include 'includes/header.php';
         try {
             const siteHost = new URL(siteUrl).hostname;
             const backlinkHost = new URL(backlinkUrl).hostname;
-            
+            let platformHost = '';
+            if (window.siteUrl) {
+                try {
+                    platformHost = new URL(window.siteUrl).hostname;
+                } catch (err) {
+                    platformHost = '';
+                }
+            }
+
+            const normalize = (value) => value ? value.replace(/^www\./i, '').toLowerCase() : '';
+
             if (siteHost === backlinkHost) {
                 showValidation('#backlinkValidation', 'error', 'Backlink must be on a different domain than your site');
+                return;
+            }
+
+            if (normalize(backlinkHost) === normalize(platformHost)) {
+                showValidation('#backlinkValidation', 'error', 'Backlink must be hosted on your own domain, not ours');
                 return;
             }
         } catch (e) {
@@ -870,21 +859,135 @@ include 'includes/header.php';
         });
     }
 
+    async function checkSiteUrlAvailability() {
+        if (!urlInput) return;
+        const url = urlInput.value.trim();
+
+        if (!url) {
+            hideValidation('#urlValidation');
+            return;
+        }
+
+        let parsedUrl;
+        try {
+            parsedUrl = new URL(url);
+        } catch (error) {
+            showValidation('#urlValidation', 'error', 'Please enter a valid URL starting with http or https');
+            return;
+        }
+
+        let platformHost = '';
+        if (window.siteUrl) {
+            try {
+                platformHost = new URL(window.siteUrl).hostname;
+            } catch (err) {
+                platformHost = '';
+            }
+        }
+        const normalize = (value) => value ? value.replace(/^www\./i, '').toLowerCase() : '';
+
+        if (normalize(parsedUrl.hostname) === normalize(platformHost)) {
+            showValidation('#urlValidation', 'error', 'Please submit your own website, not our platform URL');
+            return;
+        }
+
+        showValidation('#urlValidation', 'loading', 'Checking site availability...');
+
+        try {
+            const response = await fetch('ajax/check-site-url.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({url})
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.valid) {
+                let message = data.message || 'Site is accessible and ready for submission';
+                const latency = Number(data.response_time);
+                if (Number.isFinite(latency)) {
+                    message += ` (response ${Math.round(latency)}ms)`;
+                }
+                showValidation('#urlValidation', 'success', message);
+            } else {
+                const message = data.message || 'Unable to verify site URL';
+                showValidation('#urlValidation', 'error', message);
+            }
+        } catch (error) {
+            showValidation('#urlValidation', 'error', 'Unable to verify site URL right now');
+        }
+    }
+
+    async function checkSiteNameAvailability() {
+        if (!nameInput) return;
+        const siteName = nameInput.value.trim();
+
+        if (siteName.length === 0) {
+            hideValidation('#nameValidation');
+            return;
+        }
+
+        if (siteName.length < 3) {
+            showValidation('#nameValidation', 'loading', 'Enter at least 3 characters to check availability');
+            return;
+        }
+
+        showValidation('#nameValidation', 'loading', 'Checking site name...');
+
+        try {
+            const response = await fetch('ajax/check-site-name.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: siteName})
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.available) {
+                showValidation('#nameValidation', 'success', data.message || 'Site name available');
+            } else {
+                const message = data.message || 'A site with this name already exists';
+                showValidation('#nameValidation', 'error', message);
+            }
+        } catch (error) {
+            showValidation('#nameValidation', 'error', 'Unable to verify site name right now');
+        }
+    }
+
     // URL input handling
     if (urlInput) {
         urlInput.addEventListener('input', function() {
             const url = this.value.trim();
             if (url && url.startsWith('http')) {
                 autoFetchBtn.style.display = 'inline-block';
+                clearTimeout(urlCheckTimer);
+                urlCheckTimer = setTimeout(checkSiteUrlAvailability, 500);
             } else {
                 autoFetchBtn.style.display = 'none';
                 hideValidation('#urlValidation');
+            }
+        });
+
+        urlInput.addEventListener('blur', () => {
+            if (urlInput.value.trim()) {
+                checkSiteUrlAvailability();
             }
         });
     }
 
     if (autoFetchBtn) {
         autoFetchBtn.addEventListener('click', autoFetchMetadata);
+    }
+
+    if (nameInput) {
+        nameInput.addEventListener('input', () => {
+            clearTimeout(nameCheckTimer);
+            nameCheckTimer = setTimeout(checkSiteNameAvailability, 350);
+        });
+
+        nameInput.addEventListener('blur', () => {
+            checkSiteNameAvailability();
+        });
     }
 
     // Backlink validation
@@ -924,17 +1027,6 @@ include 'includes/header.php';
             const boosted   = parseFloat(span.getAttribute('data-boosted') || '0');
             span.textContent = '$' + (type === 'sponsored' ? sponsored : (type === 'boosted' ? boosted : 0)).toFixed(2);
         });
-    }
-
-    function updateReferralState() {
-        const enabled = featureReferral && featureReferral.checked;
-        if (referralGroup) {
-            referralGroup.style.display = enabled ? 'block' : 'none';
-        }
-        if (referralInput) {
-            referralInput.disabled = !enabled;
-            referralInput.required = enabled;
-        }
     }
 
     function updateBacklinkState() {
@@ -985,16 +1077,22 @@ include 'includes/header.php';
     $$('input[name="promotion_type"]').forEach(r => r.addEventListener('change', ()=>{updateDurationVisibility(); calcTotal();}));
     $$('input[name="promotion_duration"]').forEach(r => r.addEventListener('change', calcTotal));
     $$('input[name="features[]"]').forEach(cb => cb.addEventListener('change', () => {
-        updateReferralState(); 
-        updateBacklinkState(); 
+        updateBacklinkState();
         calcTotal();
     }));
 
     // Initial setup
     updateDurationVisibility();
-    updateReferralState();
     updateBacklinkState();
     calcTotal();
+
+    if (nameInput && nameInput.value.trim().length >= 3) {
+        checkSiteNameAvailability();
+    }
+
+    if (urlInput && urlInput.value.trim()) {
+        checkSiteUrlAvailability();
+    }
 })();
 
 function copyBacklinkCode(id) {

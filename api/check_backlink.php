@@ -26,6 +26,21 @@ if (!$host || preg_match('/^(localhost|127\.|10\.|192\.168\.)/', $host)) {
     exit;
 }
 
+$site_domain = parse_url(SITE_URL, PHP_URL_HOST);
+$normalizeHost = static function (?string $value) {
+    if ($value === null) {
+        return '';
+    }
+
+    $lower = strtolower($value);
+    return preg_replace('/^www\./', '', $lower);
+};
+
+if ($normalizeHost($host) === $normalizeHost($site_domain)) {
+    echo json_encode(['success' => false, 'error' => 'Backlink must be hosted on your domain, not ours.']);
+    exit;
+}
+
 try {
     $context = stream_context_create([
         'http' => [

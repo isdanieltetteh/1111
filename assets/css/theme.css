@@ -982,6 +982,17 @@ a:hover {
     color: var(--color-text);
 }
 
+.form-control::placeholder,
+textarea::placeholder,
+.form-select::placeholder {
+    color: rgba(226, 232, 240, 0.72);
+    opacity: 1;
+}
+
+.form-text {
+    color: rgba(226, 232, 240, 0.78);
+}
+
 .form-control:focus,
 .form-select:focus {
     border-color: rgba(56, 189, 248, 0.75);
@@ -2691,21 +2702,27 @@ a:hover {
 }
 
 .interactive-rating {
-    color: #fbbf24;
     display: inline-flex;
     gap: 0.6rem;
+    color: rgba(148, 163, 184, 0.45);
 }
 
 .interactive-rating .star {
     cursor: pointer;
-    transition: transform 0.2s ease, color 0.2s ease;
+    color: inherit;
+    transition: transform 0.2s ease, color 0.2s ease, text-shadow 0.2s ease;
 }
 
-.interactive-rating .star:hover,
+.interactive-rating .star:hover {
+    transform: scale(1.1);
+    color: #fde047;
+}
+
 .interactive-rating .star.filled,
 .interactive-rating .star.hover {
     transform: scale(1.1);
-    color: #f59e0b;
+    color: #facc15;
+    text-shadow: 0 0 12px rgba(250, 204, 21, 0.45);
 }
 
 .review-card {
@@ -2749,6 +2766,17 @@ a:hover {
     gap: 0.5rem 1rem;
     color: rgba(148, 163, 184, 0.85);
     font-size: 0.85rem;
+}
+
+.review-card .review-meta-rating {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.review-card .review-meta-rating .rating-count {
+    color: rgba(226, 232, 240, 0.9);
+    font-weight: 600;
 }
 
 .review-card .review-content {

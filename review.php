@@ -48,6 +48,16 @@ if (!$site) {
     exit();
 }
 
+$average_rating = isset($site['average_rating']) ? (float)$site['average_rating'] : 0;
+$review_count = isset($site['review_count']) ? (int)$site['review_count'] : 0;
+$rating_distribution = [
+    5 => isset($site['five_star_count']) ? (int)$site['five_star_count'] : 0,
+    4 => isset($site['four_star_count']) ? (int)$site['four_star_count'] : 0,
+    3 => isset($site['three_star_count']) ? (int)$site['three_star_count'] : 0,
+    2 => isset($site['two_star_count']) ? (int)$site['two_star_count'] : 0,
+    1 => isset($site['one_star_count']) ? (int)$site['one_star_count'] : 0,
+];
+
 // Update view count
  $update_views = "UPDATE sites SET views = views + 1 WHERE id = :site_id";
  $update_stmt = $db->prepare($update_views);
@@ -501,36 +511,36 @@ function truncateText($text, $length = 60) {
                                 <div class="dev-slot2 mt-4 mt-md-0 ms-md-4 flex-shrink-0" style="min-width:220px; min-height:80px;">Inline Ad 300x100</div>
                             </div>
                             <div class="row g-4">
-                                <?php foreach ($sponsored_sites as $site): ?>
+                                <?php foreach ($sponsored_sites as $sponsored_site): ?>
                                     <div class="col-md-6">
                                         <article class="listing-card featured-card featured-card--premium h-100">
                                             <div class="featured-card__badge-row">
                                                 <span class="featured-badge featured-badge--premium"><i class="fas fa-crown me-2"></i>Premium Sponsor</span>
                                             </div>
                                             <div class="featured-card__header">
-                                                <img src="<?php echo htmlspecialchars($site['logo'] ?: 'assets/images/default-logo.png'); ?>" alt="<?php echo htmlspecialchars($site['name']); ?>" class="site-logo">
+                                                <img src="<?php echo htmlspecialchars($sponsored_site['logo'] ?: 'assets/images/default-logo.png'); ?>" alt="<?php echo htmlspecialchars($sponsored_site['name']); ?>" class="site-logo">
                                                 <div>
-                                                    <h4 class="featured-card__title mb-1 text-white"><?php echo htmlspecialchars($site['name']); ?></h4>
+                                                    <h4 class="featured-card__title mb-1 text-white"><?php echo htmlspecialchars($sponsored_site['name']); ?></h4>
                                                     <div class="featured-card__meta">
-                                                        <span class="site-category"><i class="fas fa-layer-group"></i><?php echo ucfirst(str_replace('_', ' ', $site['category'])); ?></span>
+                                                        <span class="site-category"><i class="fas fa-layer-group"></i><?php echo ucfirst(str_replace('_', ' ', $sponsored_site['category'])); ?></span>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div class="featured-card__rating">
-                                                <?php echo render_stars(round($site['average_rating']), '1rem'); ?>
-                                                <span class="rating-value"><?php echo number_format($site['average_rating'], 1); ?>/5</span>
-                                                <span class="text-muted">(<?php echo number_format($site['review_count']); ?> reviews)</span>
+                                                <?php echo render_stars(round($sponsored_site['average_rating']), '1rem'); ?>
+                                                <span class="rating-value"><?php echo number_format($sponsored_site['average_rating'], 1); ?>/5</span>
+                                                <span class="text-muted">(<?php echo number_format($sponsored_site['review_count']); ?> reviews)</span>
                                             </div>
-                                            <p class="featured-card__description"><?php echo htmlspecialchars(truncateText($site['description'], 60)); ?></p>
+                                            <p class="featured-card__description"><?php echo htmlspecialchars(truncateText($sponsored_site['description'], 60)); ?></p>
                                             <div class="featured-card__status">
                                                 <div class="featured-card__status-badges">
-                                                    <?php echo get_status_badge($site['status'] ?? 'paying'); ?>
+                                                    <?php echo get_status_badge($sponsored_site['status'] ?? 'paying'); ?>
                                                 </div>
                                                 <div class="featured-card__trust featured-card__trust--premium"><i class="fas fa-gem me-2"></i>High Conversion Partner</div>
                                             </div>
                                             <div class="featured-card__actions">
-                                                <a href="visit?id=<?php echo $site['id']; ?>" class="btn btn-theme btn-gradient" target="_blank" rel="nofollow"><i class="fas fa-arrow-up-right-from-square me-2"></i>Visit Site</a>
-                                                <a href="review?id=<?php echo $site['id']; ?>" class="btn btn-theme btn-outline-glass"><i class="fas fa-info-circle me-2"></i>Details</a>
+                                                <a href="visit?id=<?php echo $sponsored_site['id']; ?>" class="btn btn-theme btn-gradient" target="_blank" rel="nofollow"><i class="fas fa-arrow-up-right-from-square me-2"></i>Visit Site</a>
+                                                <a href="review?id=<?php echo $sponsored_site['id']; ?>" class="btn btn-theme btn-outline-glass"><i class="fas fa-info-circle me-2"></i>Details</a>
                                             </div>
                                         </article>
                                     </div>
@@ -641,7 +651,10 @@ function truncateText($text, $length = 60) {
                                                 </div>
                                                 <div class="review-meta">
                                                     <span><i class="fas fa-clock me-1"></i><?php echo time_ago($review['created_at']); ?></span>
-                                                    <span><?php echo str_repeat('★', $review['rating']) . str_repeat('☆', 5 - $review['rating']); ?></span>
+                                                    <div class="review-meta-rating" aria-label="<?php echo $review['rating']; ?> out of 5 stars">
+                                                        <?php echo render_stars($review['rating'], '1rem'); ?>
+                                                        <span class="rating-count"><?php echo $review['rating']; ?>/5</span>
+                                                    </div>
                                                     <span><i class="fas fa-medal me-1"></i><?php echo number_format($review['reputation_points']); ?> rep</span>
                                                 </div>
                                             </div>
@@ -732,37 +745,37 @@ function truncateText($text, $length = 60) {
                                 </div>
                             </div>
                             <div class="row g-4">
-                                <?php foreach ($boosted_sites as $site): ?>
+                                <?php foreach ($boosted_sites as $boosted_site): ?>
                                     <div class="col-md-6">
                                         <article class="listing-card featured-card featured-card--boosted h-100">
                                             <div class="featured-card__badge-row">
                                                 <span class="featured-badge featured-badge--boosted"><i class="fas fa-rocket me-2"></i>Boosted Spotlight</span>
                                             </div>
                                             <div class="featured-card__header">
-                                                <img src="<?php echo htmlspecialchars($site['logo'] ?: 'assets/images/default-logo.png'); ?>" alt="<?php echo htmlspecialchars($site['name']); ?>" class="site-logo">
+                                                <img src="<?php echo htmlspecialchars($boosted_site['logo'] ?: 'assets/images/default-logo.png'); ?>" alt="<?php echo htmlspecialchars($boosted_site['name']); ?>" class="site-logo">
                                                 <div>
-                                                    <h4 class="featured-card__title mb-1 text-white"><?php echo htmlspecialchars($site['name']); ?></h4>
+                                                    <h4 class="featured-card__title mb-1 text-white"><?php echo htmlspecialchars($boosted_site['name']); ?></h4>
                                                     <div class="featured-card__meta">
-                                                        <span class="site-category"><i class="fas fa-layer-group"></i><?php echo ucfirst(str_replace('_', ' ', $site['category'])); ?></span>
+                                                        <span class="site-category"><i class="fas fa-layer-group"></i><?php echo ucfirst(str_replace('_', ' ', $boosted_site['category'])); ?></span>
                                                     </div>
                                                 </div>
                                             </div>
                                             <div class="featured-card__rating">
-                                                <?php echo render_stars(round($site['average_rating']), '1rem'); ?>
-                                                <span class="rating-value"><?php echo number_format($site['average_rating'], 1); ?>/5</span>
-                                                <span class="text-muted">(<?php echo number_format($site['review_count']); ?> reviews)</span>
+                                                <?php echo render_stars(round($boosted_site['average_rating']), '1rem'); ?>
+                                                <span class="rating-value"><?php echo number_format($boosted_site['average_rating'], 1); ?>/5</span>
+                                                <span class="text-muted">(<?php echo number_format($boosted_site['review_count']); ?> reviews)</span>
                                             </div>
-                                            <p class="featured-card__description"><?php echo htmlspecialchars(truncateText($site['description'], 60)); ?></p>
-                                            
+                                            <p class="featured-card__description"><?php echo htmlspecialchars(truncateText($boosted_site['description'], 60)); ?></p>
+
                                             <div class="featured-card__status">
                                                 <div class="featured-card__status-badges">
-                                                    <?php echo get_status_badge($site['status'] ?? 'paying'); ?>
+                                                    <?php echo get_status_badge($boosted_site['status'] ?? 'paying'); ?>
                                                 </div>
                                                 <div class="featured-card__trust featured-card__trust--boosted"><i class="fas fa-bolt me-2"></i>Community Favorite</div>
                                             </div>
                                             <div class="featured-card__actions">
-                                                <a href="visit?id=<?php echo $site['id']; ?>" class="btn btn-theme btn-gradient" target="_blank" rel="nofollow"><i class="fas fa-arrow-up-right-from-square me-2"></i>Visit Site</a>
-                                                <a href="review?id=<?php echo $site['id']; ?>" class="btn btn-theme btn-outline-glass"><i class="fas fa-info-circle me-2"></i>Details</a>
+                                                <a href="visit?id=<?php echo $boosted_site['id']; ?>" class="btn btn-theme btn-gradient" target="_blank" rel="nofollow"><i class="fas fa-arrow-up-right-from-square me-2"></i>Visit Site</a>
+                                                <a href="review?id=<?php echo $boosted_site['id']; ?>" class="btn btn-theme btn-outline-glass"><i class="fas fa-info-circle me-2"></i>Details</a>
                                             </div>
                                         </article>
                                     </div>
@@ -805,17 +818,16 @@ function truncateText($text, $length = 60) {
                     <div class="glass-card p-4 p-lg-5 mb-4">
                         <h3 class="text-white mb-4"><i class="fas fa-star-half-stroke text-warning me-2"></i>Rating Breakdown</h3>
                         <div class="text-center mb-4">
-                            <div class="display-4 fw-bold text-warning"><?php echo number_format($site['average_rating'], 1); ?></div>
-                            <?php echo render_stars(round($site['average_rating']), '1.3rem'); ?>
-                            <p class="text-muted mb-0">Based on <?php echo $site['review_count']; ?> reviews</p>
+                            <div class="display-4 fw-bold text-warning"><?php echo number_format($average_rating, 1); ?></div>
+                            <?php echo render_stars(round($average_rating), '1.3rem'); ?>
+                            <p class="text-muted mb-0">Based on <?php echo $review_count; ?> reviews</p>
                         </div>
-                        <?php if ($site['review_count'] > 0): ?>
+                        <?php if ($review_count > 0): ?>
                             <div class="rating-breakdown">
                                 <?php for ($i = 5; $i >= 1; $i--): ?>
                                     <?php
-                                        $count_key = ['', 'one', 'two', 'three', 'four', 'five'][$i] . '_star_count';
-                                        $count = $site[$count_key];
-                                        $width = $site['review_count'] > 0 ? ($count / $site['review_count']) * 100 : 0;
+                                        $count = $rating_distribution[$i] ?? 0;
+                                        $width = $review_count > 0 ? ($count / $review_count) * 100 : 0;
                                     ?>
                                     <div class="rating-bar">
                                         <span><?php echo $i; ?>★</span>

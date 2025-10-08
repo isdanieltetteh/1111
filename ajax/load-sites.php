@@ -33,7 +33,7 @@ if (!in_array($view, $valid_views)) $view = 'grid';
 
 $offset = ($page - 1) * $per_page;
 
-$where_conditions = ['s.is_approved = 1', 's.is_dead = FALSE', 's.admin_approved_dead = FALSE', 's.is_sponsored = 0', 's.is_boosted = 0'];
+$where_conditions = ['s.is_approved = 1', 's.is_dead = FALSE', 's.admin_approved_dead = FALSE'];
 $params = [];
 
 if ($category !== 'all') {
@@ -73,7 +73,12 @@ $sites_query = "SELECT s.*,
                 COALESCE(AVG(r.rating), 0) as average_rating,
                 COUNT(r.id) as review_count,
                 u.username as submitted_by_username,
-                (s.total_upvotes - s.total_downvotes) as vote_score
+                (s.total_upvotes - s.total_downvotes) as vote_score,
+                CASE
+                    WHEN s.is_sponsored = 1 AND s.sponsored_until > NOW() THEN 'sponsored'
+                    WHEN s.is_boosted = 1 AND s.boosted_until > NOW() THEN 'boosted'
+                    ELSE 'normal'
+                END as promotion_status
                 FROM sites s
                 LEFT JOIN reviews r ON s.id = r.site_id
                 LEFT JOIN users u ON s.submitted_by = u.id
@@ -105,7 +110,7 @@ function getStatusBadge($status) {
     return $badges[$status] ?? '';
 }
 
-function truncateText($text, $length = 140) {
+function truncateText($text, $length = 120) {
     return strlen($text) > $length ? substr($text, 0, $length) . '...' : $text;
 }
 
@@ -137,60 +142,75 @@ foreach ($sites as $index => $site) {
     $logo = htmlspecialchars($site['logo'] ?: 'assets/images/default-logo.png');
     $name = htmlspecialchars($site['name']);
     $category = htmlspecialchars(ucfirst(str_replace('_', ' ', $site['category'])));
-    $description = htmlspecialchars(truncateText($site['description'] ?? '', 140));
+    $description = htmlspecialchars(truncateText($site['description'] ?? '', 120));
     $status_badge = getStatusBadge($site['status'] ?? 'paying');
     $list_class = $view === 'list' ? 'list-view ' : '';
+    $promotion_status = $site['promotion_status'] ?? 'normal';
     ?>
-    <div class="site-card listing-card <?php echo $list_class; ?>position-relative animate-fade-in" data-site-id="<?php echo $site['id']; ?>" data-rank="<?php echo $current_rank; ?>">
+    <div class="site-card listing-card <?php echo $list_class; ?>position-relative animate-fade-in is-visible" data-site-id="<?php echo $site['id']; ?>" data-rank="<?php echo $current_rank; ?>">
         <?php if ($current_rank <= 3): ?>
             <span class="stat-ribbon rank-<?php echo $current_rank; ?>"><?php echo getCrownIcon($current_rank); ?>Top <?php echo $current_rank; ?></span>
         <?php endif; ?>
         <div class="site-header">
             <img src="<?php echo $logo; ?>" alt="<?php echo $name; ?>" class="site-logo">
             <div class="site-info">
-                <h3 class="text-white mb-1">#<?php echo $current_rank; ?> <?php echo $name; ?></h3>
-                <span class="site-category"><i class="fas fa-layer-group"></i><?php echo $category; ?></span>
+                <h3 class="site-name text-white mb-2">
+                    #<?php echo $current_rank; ?> <?php echo $name; ?>
+                    <?php if ($promotion_status !== 'normal'): ?>
+                        <span class="badge <?php echo $promotion_status === 'sponsored' ? 'bg-warning text-dark' : 'bg-info text-dark'; ?> fw-semibold ms-2">
+                            <i class="fas <?php echo $promotion_status === 'sponsored' ? 'fa-crown' : 'fa-rocket'; ?> me-1"></i><?php echo ucfirst($promotion_status); ?>
+                        </span>
+                    <?php endif; ?>
+                </h3>
+                <div class="d-flex flex-wrap align-items-center gap-2 text-muted small">
+                    <span class="site-category"><i class="fas fa-layer-group"></i><?php echo $category; ?></span>
+                    <span class="text-uppercase fw-semibold text-info">Ranked #<?php echo $current_rank; ?></span>
+                </div>
             </div>
         </div>
 
-        <div class="site-description"><?php echo $description; ?></div>
+        <div class="site-card-body">
+            <p class="site-description mb-0"><?php echo $description; ?></p>
 
-        <div class="site-rating">
-            <?php echo renderStars(round($site['average_rating']), '1rem'); ?>
-            <span class="rating-value"><?php echo number_format($site['average_rating'], 1); ?>/5</span>
-            <span class="text-muted small">(<?php echo $site['review_count']; ?>)</span>
-        </div>
+            <div class="site-card-stats">
+                <div class="site-rating">
+                    <?php echo renderStars(round($site['average_rating']), '1rem'); ?>
+                    <span class="rating-value"><?php echo number_format($site['average_rating'], 1); ?>/5</span>
+                    <span class="text-muted small">(<?php echo $site['review_count']; ?>)</span>
+                </div>
 
-        <div class="site-metrics">
-            <div class="metrics-left">
-                <div class="metric positive"><i class="fas fa-thumbs-up"></i><span><?php echo $site['total_upvotes']; ?></span></div>
-                <?php if ($site['total_downvotes'] > 0): ?>
-                    <div class="metric negative"><i class="fas fa-thumbs-down"></i><span><?php echo $site['total_downvotes']; ?></span></div>
-                <?php endif; ?>
-                <div class="metric"><i class="fas fa-comments"></i><span><?php echo $site['review_count']; ?></span></div>
-                <div class="metric"><i class="fas fa-clock"></i><span><?php echo timeAgo($site['created_at'] ?? null); ?></span></div>
+                <div class="site-metrics">
+                    <div class="metrics-left">
+                        <div class="metric positive"><i class="fas fa-thumbs-up"></i><span><?php echo $site['total_upvotes']; ?></span></div>
+                        <?php if ($site['total_downvotes'] > 0): ?>
+                            <div class="metric negative"><i class="fas fa-thumbs-down"></i><span><?php echo $site['total_downvotes']; ?></span></div>
+                        <?php endif; ?>
+                        <div class="metric"><i class="fas fa-comments"></i><span><?php echo $site['review_count']; ?></span></div>
+                        <div class="metric"><i class="fas fa-clock"></i><span><?php echo timeAgo($site['created_at'] ?? null); ?></span></div>
+                    </div>
+                    <div class="status-holder"><?php echo $status_badge; ?></div>
+                </div>
             </div>
-            <?php echo $status_badge; ?>
-        </div>
 
-        <div class="site-actions">
-            <div class="vote-buttons">
-                <button class="vote-btn upvote"
-                        onclick="vote(<?php echo (int) $site['id']; ?>, 'upvote', 'site')"
-                        data-site-id="<?php echo (int) $site['id']; ?>"
-                        data-vote-type="upvote">
-                    <i class="fas fa-thumbs-up"></i>
-                    <span class="vote-count"><?php echo $site['total_upvotes']; ?></span>
-                </button>
-                <button class="vote-btn downvote"
-                        onclick="vote(<?php echo (int) $site['id']; ?>, 'downvote', 'site')"
-                        data-site-id="<?php echo (int) $site['id']; ?>"
-                        data-vote-type="downvote">
-                    <i class="fas fa-thumbs-down"></i>
-                    <span class="vote-count"><?php echo $site['total_downvotes']; ?></span>
-                </button>
+            <div class="site-actions">
+                <div class="vote-buttons">
+                    <button class="vote-btn upvote"
+                            onclick="vote(<?php echo (int) $site['id']; ?>, 'upvote', 'site')"
+                            data-site-id="<?php echo (int) $site['id']; ?>"
+                            data-vote-type="upvote">
+                        <i class="fas fa-thumbs-up"></i>
+                        <span class="vote-count"><?php echo $site['total_upvotes']; ?></span>
+                    </button>
+                    <button class="vote-btn downvote"
+                            onclick="vote(<?php echo (int) $site['id']; ?>, 'downvote', 'site')"
+                            data-site-id="<?php echo (int) $site['id']; ?>"
+                            data-vote-type="downvote">
+                        <i class="fas fa-thumbs-down"></i>
+                        <span class="vote-count"><?php echo $site['total_downvotes']; ?></span>
+                    </button>
+                </div>
+                <a href="review?id=<?php echo (int) $site['id']; ?>" class="btn btn-theme btn-gradient"><i class="fas fa-info-circle me-2"></i>View Details</a>
             </div>
-            <a href="review?id=<?php echo (int) $site['id']; ?>" class="btn btn-theme btn-gradient"><i class="fas fa-info-circle me-2"></i>View Details</a>
         </div>
     </div>
     <?php

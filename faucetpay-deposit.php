@@ -155,113 +155,24 @@ include 'includes/header.php';
                             <i class="fas fa-droplet me-2"></i>
                             <span>Minimum $<?php echo number_format($settings['min_deposit'], 4); ?></span>
                         </div>
-                        <a href="wallet.php" class="btn btn-theme btn-outline-glass mt-3">
-                            <i class="fas fa-wallet me-2"></i>View Wallet
-                        </a>
-                    </div>
-                </div>
-            </div>
-            <div class="dev-slot mt-4">Hero Banner 970x250</div>
-        </div>
-    </section>
-
-    <section class="py-4">
-        <div class="container">
-            <?php
-            $dashboard_nav_links = [
-                [
-                    'href' => 'dashboard.php',
-                    'icon' => 'fa-gauge-high',
-                    'label' => 'Overview',
-                    'description' => 'Insights & rewards summary'
-                ],
-                [
-                    'href' => 'my-submissions.php',
-                    'icon' => 'fa-globe',
-                    'label' => 'My Submissions',
-                    'description' => 'Manage and update your listings'
-                ],
-                [
-                    'href' => 'my-ads.php',
-                    'icon' => 'fa-rectangle-ad',
-                    'label' => 'My Campaigns',
-                    'description' => 'Track ad performance & status'
-                ],
-                [
-                    'href' => 'notifications.php',
-                    'icon' => 'fa-bell',
-                    'label' => 'Notifications',
-                    'description' => 'Review alerts & platform updates'
-                ],
-                [
-                    'href' => 'wallet.php',
-                    'icon' => 'fa-wallet',
-                    'label' => 'Wallet',
-                    'description' => 'Monitor credits & transactions'
-                ],
-                [
-                    'href' => 'support-tickets.php',
-                    'icon' => 'fa-life-ring',
-                    'label' => 'Support',
-                    'description' => 'Submit & follow support tickets'
-                ],
-                [
-                    'href' => 'promote-sites.php',
-                    'icon' => 'fa-rocket',
-                    'label' => 'Promotions',
-                    'description' => 'Boost visibility with premium slots'
-                ],
-                [
-                    'href' => 'buy-credits.php',
-                    'icon' => 'fa-credit-card',
-                    'label' => 'Buy Credits',
-                    'description' => 'Top up instantly for upgrades'
-                ],
-                [
-                    'href' => 'redeem-coupon.php',
-                    'icon' => 'fa-ticket',
-                    'label' => 'Redeem Coupons',
-                    'description' => 'Apply promo codes for bonuses'
-                ],
-                [
-                    'href' => 'profile.php',
-                    'icon' => 'fa-user-gear',
-                    'label' => 'Account Settings',
-                    'description' => 'Update profile & security details'
-                ]
-            ];
-            $dashboard_nav_current = basename($_SERVER['PHP_SELF'] ?? '');
-            ?>
-            <div class="glass-card p-4 p-lg-5 mb-4" data-aos="fade-up">
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-                    <div>
-                        <h2 class="h5 text-white mb-1">Navigate Your Toolkit</h2>
-                        <p class="text-muted mb-0">Quick links to every dashboard feature.</p>
-                    </div>
-                    <a href="promote-sites.php" class="btn btn-theme btn-outline-glass btn-sm">
-                        <i class="fas fa-bullhorn me-2"></i>Promotions Desk
-                    </a>
-                </div>
-                <div class="row g-3 row-cols-2 row-cols-sm-3 row-cols-lg-4 row-cols-xl-5 dashboard-nav-grid">
-                    <?php foreach ($dashboard_nav_links as $link): ?>
-                        <div class="col">
-                            <a class="dashboard-nav-tile <?php echo $dashboard_nav_current === basename($link['href']) ? 'active' : ''; ?>"
-                               href="<?php echo htmlspecialchars($link['href']); ?>">
-                                <span class="tile-icon"><i class="fas <?php echo htmlspecialchars($link['icon']); ?>"></i></span>
-                                <span class="tile-label"><?php echo htmlspecialchars($link['label']); ?></span>
-                                <span class="tile-desc text-muted"><?php echo htmlspecialchars($link['description']); ?></span>
-                                <span class="tile-arrow"><i class="fas fa-arrow-right"></i></span>
+                        <div class="d-flex flex-wrap gap-2 justify-content-lg-end mt-3">
+                            <a href="transactions.php" class="btn btn-theme btn-outline-glass">
+                                <i class="fas fa-list me-2"></i>Transaction Log
+                            </a>
+                            <a href="wallet.php" class="btn btn-theme btn-gradient">
+                                <i class="fas fa-wallet me-2"></i>View Wallet
                             </a>
                         </div>
-                    <?php endforeach; ?>
+                    </div>
                 </div>
             </div>
+            <div class="ad-slot dev-slot mt-4">Hero Banner 970x250</div>
         </div>
     </section>
 
     <section class="pb-5">
         <div class="container">
-            <div class="dev-slot2 mb-4">Inline Ad 728x90</div>
+            <div class="ad-slot dev-slot2 mb-4">Inline Ad 728x90</div>
             <div class="row g-4" data-aos="fade-up" data-aos-delay="100">
                 <div class="col-12 col-xl-7">
                     <div class="glass-card p-4 p-lg-5 h-100">
@@ -435,7 +346,7 @@ include 'includes/header.php';
                                 <li><i class="fas fa-check-circle text-success me-2"></i>Automatic crediting to your dashboard.</li>
                             </ul>
                         </div>
-                        <div class="dev-slot1 mb-4">Sidebar Ad 300x600</div>
+                        <div class="ad-slot dev-slot1 mb-4">Sidebar Ad 300x600</div>
                         <div class="glass-card p-4">
                             <h4 class="h6 text-white mb-3">Need another payment rail?</h4>
                             <p class="text-muted small mb-3">Prefer paying from an exchange balance? Create a BitPay invoice for bank-grade settlement.</p>
