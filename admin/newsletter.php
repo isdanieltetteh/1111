@@ -22,65 +22,63 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     switch ($action) {
         case 'send_newsletter':
-            $subject = trim($_POST['subject']);
-            $content = trim($_POST['content']);
-            $target_preferences = $_POST['target_preferences'] ?? [];
-            
-            if (empty($subject) || empty($content)) {
-                $error_message = 'Subject and content are required';
-                break;
-            }
-            
-            // Build query based on preferences
-            $where_conditions = ['ns.is_active = 1', 'ns.verified_at IS NOT NULL'];
-            $params = [];
-            
-            if (!empty($target_preferences)) {
-                $preference_conditions = [];
-                foreach ($target_preferences as $pref) {
-                    $preference_conditions[] = "JSON_CONTAINS(ns.preferences, ?)";
-                }
-                $where_clause_prefs = '(' . implode(' OR ', $preference_conditions) . ')';
-                $where_conditions[] = $where_clause_prefs;
-                
-                // Add parameters for each preference
-                foreach ($target_preferences as $pref) {
-                    $params[] = '"' . $pref . '"';
-                }
-            }
-            
-            $where_clause = implode(' AND ', $where_conditions);
-            
-            // Get subscribers
-            $subscribers_query = "SELECT ns.email, u.username 
-                                FROM newsletter_subscriptions ns
-                                LEFT JOIN users u ON ns.user_id = u.id
-                                WHERE {$where_clause}";
-            $subscribers_stmt = $db->prepare($subscribers_query);
-            if (!empty($params)) {
-                $subscribers_stmt->execute($params);
-            } else {
-                $subscribers_stmt->execute();
-            }
-            $subscribers = $subscribers_stmt->fetchAll(PDO::FETCH_ASSOC);
-            
-            if (!empty($subscribers)) {
-                // Log newsletter campaign
-                $campaign_query = "INSERT INTO email_campaigns (subject, message, target_audience, recipient_count, sent_by) 
-                                  VALUES (:subject, :content, :target, :count, :admin_id)";
-                $campaign_stmt = $db->prepare($campaign_query);
-                $campaign_stmt->bindParam(':subject', $subject);
-                $campaign_stmt->bindParam(':content', $content);
-                $campaign_stmt->bindParam(':target', implode(',', $target_preferences));
-                $campaign_stmt->bindParam(':count', count($subscribers));
-                $campaign_stmt->bindParam(':admin_id', $_SESSION['user_id']);
-                $campaign_stmt->execute();
-                
-                $success_message = 'Newsletter sent to ' . count($subscribers) . ' subscribers!';
-            } else {
-                $error_message = 'No subscribers found for selected preferences';
-            }
-            break;
+    $subject = trim($_POST['subject']);
+    $content = trim($_POST['content']);
+    $target_preferences = $_POST['target_preferences'] ?? [];
+    
+    if (empty($subject) || empty($content)) {
+        $error_message = 'Subject and content are required';
+        break;
+    }
+    
+    // Build query based on preferences
+    $where_conditions = ['ns.is_active = 1', 'ns.verified_at IS NOT NULL'];
+    $params = [];
+    
+    if (!empty($target_preferences)) {
+        $preference_conditions = [];
+        foreach ($target_preferences as $index => $pref) {
+            $preference_conditions[] = "JSON_CONTAINS(ns.preferences, ?)";
+            $params[":pref{$index}"] = '"' . $pref . '"';
+        }
+        $where_clause_prefs = '(' . implode(' OR ', $preference_conditions) . ')';
+        $where_conditions[] = $where_clause_prefs;
+    }
+    
+    $where_clause = implode(' AND ', $where_conditions);
+    
+    // Get subscribers
+    $subscribers_query = "SELECT ns.email, u.username 
+                        FROM newsletter_subscriptions ns
+                        LEFT JOIN users u ON ns.user_id = u.id
+                        WHERE {$where_clause}";
+    $subscribers_stmt = $db->prepare($subscribers_query);
+    if (!empty($params)) {
+        $subscribers_stmt->execute(array_values($params));
+    } else {
+        $subscribers_stmt->execute();
+    }
+    $subscribers = $subscribers_stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (!empty($subscribers)) {
+        // Log newsletter campaign
+        $recipient_count = count($subscribers); // Store count in a variable
+        $target_audience = implode(',', $target_preferences);
+        $campaign_query = "INSERT INTO email_campaigns (subject, message, target_audience, recipient_count, sent_by) 
+                          VALUES (:subject, :content, :target, :count, :admin_id)";
+        $campaign_stmt = $db->prepare($campaign_query);
+        $campaign_stmt->bindParam(':subject', $subject);
+        $campaign_stmt->bindParam(':content', $content);
+        $campaign_stmt->bindParam(':target', $target_audience);
+        $campaign_stmt->bindParam(':count', $recipient_count, PDO::PARAM_INT);
+        $campaign_stmt->bindParam(':admin_id', $_SESSION['user_id'], PDO::PARAM_INT);
+        $campaign_stmt->execute();
+        
+        $success_message = 'Newsletter sent to ' . $recipient_count . ' subscribers!';
+    } else {
+        $error_message = 'No subscribers found for selected preferences';
+    }
+    break;
             
         case 'export_subscribers':
             $preference_filter = $_POST['preference_filter'] ?? 'all';
@@ -331,12 +329,12 @@ include 'includes/admin_header.php';
                                             if (!empty($preferences)) {
                                                 foreach ($preferences as $pref) {
                                                     $pref_labels = [
-                                                        'scam_alerts' => '🚨 Scam Alerts',
-                                                        'new_sites' => '🆕 New Sites',
-                                                        'weekly_digest' => '📊 Weekly Digest',
-                                                        'high_paying' => '💰 High Paying',
-                                                        'platform_updates' => '🔔 Updates',
-                                                        'earning_tips' => '💡 Tips'
+                                                        'scam_alerts' => 'ðŸš¨ Scam Alerts',
+                                                        'new_sites' => 'ðŸ†• New Sites',
+                                                        'weekly_digest' => 'ðŸ“Š Weekly Digest',
+                                                        'high_paying' => 'ðŸ’° High Paying',
+                                                        'platform_updates' => 'ðŸ”” Updates',
+                                                        'earning_tips' => 'ðŸ’¡ Tips'
                                                     ];
                                                     echo '<span class="badge bg-secondary me-1">' . ($pref_labels[$pref] ?? $pref) . '</span>';
                                                 }
@@ -404,29 +402,29 @@ include 'includes/admin_header.php';
                             <div class="col-md-6">
                                 <div class="form-check">
                                     <input type="checkbox" name="target_preferences[]" value="scam_alerts" class="form-check-input">
-                                    <label class="form-check-label">🚨 Scam Alerts (<?php echo $stats['scam_alert_subs']; ?>)</label>
+                                    <label class="form-check-label">ðŸš¨ Scam Alerts (<?php echo $stats['scam_alert_subs']; ?>)</label>
                                 </div>
                                 <div class="form-check">
                                     <input type="checkbox" name="target_preferences[]" value="new_sites" class="form-check-input">
-                                    <label class="form-check-label">🆕 New Sites (<?php echo $stats['new_site_subs']; ?>)</label>
+                                    <label class="form-check-label">ðŸ†• New Sites (<?php echo $stats['new_site_subs']; ?>)</label>
                                 </div>
                                 <div class="form-check">
                                     <input type="checkbox" name="target_preferences[]" value="weekly_digest" class="form-check-input">
-                                    <label class="form-check-label">📊 Weekly Digest (<?php echo $stats['weekly_digest_subs']; ?>)</label>
+                                    <label class="form-check-label">ðŸ“Š Weekly Digest (<?php echo $stats['weekly_digest_subs']; ?>)</label>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-check">
                                     <input type="checkbox" name="target_preferences[]" value="high_paying" class="form-check-input">
-                                    <label class="form-check-label">💰 High Paying Sites</label>
+                                    <label class="form-check-label">ðŸ’° High Paying Sites</label>
                                 </div>
                                 <div class="form-check">
                                     <input type="checkbox" name="target_preferences[]" value="platform_updates" class="form-check-input">
-                                    <label class="form-check-label">🔔 Platform Updates</label>
+                                    <label class="form-check-label">ðŸ”” Platform Updates</label>
                                 </div>
                                 <div class="form-check">
                                     <input type="checkbox" name="target_preferences[]" value="earning_tips" class="form-check-input">
-                                    <label class="form-check-label">💡 Earning Tips</label>
+                                    <label class="form-check-label">ðŸ’¡ Earning Tips</label>
                                 </div>
                             </div>
                         </div>
