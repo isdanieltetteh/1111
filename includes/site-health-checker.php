@@ -4,9 +4,36 @@ class SiteHealthChecker {
     private $timeout = 15;
     private $max_redirects = 3;
     private $user_agent = 'Mozilla/5.0 (compatible; CryptoEarn Health Checker/1.0)';
-    
+    private $columnExistenceCache = [];
+
     public function __construct($database) {
         $this->db = $database;
+    }
+
+    /**
+     * Check if a database column exists (cached per request)
+     */
+    private function tableHasColumn($table, $column) {
+        $cacheKey = $table . '.' . $column;
+
+        if (array_key_exists($cacheKey, $this->columnExistenceCache)) {
+            return $this->columnExistenceCache[$cacheKey];
+        }
+
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND COLUMN_NAME = :column"
+            );
+            $stmt->bindParam(':table', $table);
+            $stmt->bindParam(':column', $column);
+            $stmt->execute();
+            $exists = $stmt->fetchColumn() > 0;
+        } catch (Exception $e) {
+            $exists = false;
+        }
+
+        $this->columnExistenceCache[$cacheKey] = $exists;
+        return $exists;
     }
     
     /**
@@ -180,8 +207,8 @@ class SiteHealthChecker {
     private function logHealthCheck($site_id, $url, $result) {
         try {
             // Insert or update health check record
-            $query = "INSERT INTO site_health_checks 
-                     (site_id, url_checked, status_code, response_time, is_accessible, error_message, ssl_valid, content_length, server_info, last_checked) 
+            $query = "INSERT INTO site_health_checks
+                     (site_id, url_checked, status_code, response_time, is_accessible, error_message, ssl_valid, content_length, server_info, last_checked)
                      VALUES (:site_id, :url, :status_code, :response_time, :accessible, :error_message, :ssl_valid, :content_length, :server_info, NOW())
                      ON DUPLICATE KEY UPDATE
                      status_code = VALUES(status_code),
@@ -191,9 +218,13 @@ class SiteHealthChecker {
                      ssl_valid = VALUES(ssl_valid),
                      content_length = VALUES(content_length),
                      server_info = VALUES(server_info),
-                     last_checked = NOW(),
+                     last_checked = NOW()";
+
+            if ($this->tableHasColumn('site_health_checks', 'check_count')) {
+                $query .= ",
                      check_count = check_count + 1";
-            
+            }
+
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':site_id', $site_id);
             $stmt->bindParam(':url', $url);
@@ -396,20 +427,24 @@ class SiteHealthChecker {
      * Get sites that appear to be dead with enhanced data
      */
     public function getDeadSites() {
-        $query = "SELECT s.*, 
-                 shc.error_message, 
-                 shc.last_checked, 
-                 shc.response_time,
-                 shc.status_code,
-                 shc.check_count,
-                 s.consecutive_failures,
-                 s.first_failure_at,
-                 s.uptime_percentage,
-                 u.username as submitted_by_username
+        $selectFields = [
+            's.*',
+            'shc.error_message',
+            'shc.last_checked',
+            'shc.response_time',
+            'shc.status_code',
+            $this->tableHasColumn('site_health_checks', 'check_count') ? 'shc.check_count' : 'NULL AS check_count',
+            's.consecutive_failures',
+            's.first_failure_at',
+            's.uptime_percentage',
+            'u.username as submitted_by_username'
+        ];
+
+        $query = "SELECT " . implode(",\n                 ", $selectFields) . "
                  FROM sites s
                  LEFT JOIN site_health_checks shc ON s.id = shc.site_id
                  LEFT JOIN users u ON s.submitted_by = u.id
-                 WHERE s.is_dead = TRUE 
+                 WHERE s.is_dead = TRUE
                  AND s.admin_approved_dead = FALSE
                  AND s.is_approved = 1
                  ORDER BY s.consecutive_failures DESC, shc.last_checked DESC";
