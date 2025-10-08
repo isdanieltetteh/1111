@@ -1,6 +1,6 @@
 <?php
 $currentAdminPage = basename($_SERVER['PHP_SELF']);
-$adNavigationPages = ['ad-revenue.php', 'ad-analytics.php', 'ad-control.php', 'ad-spaces-manager.php', 'ad-analytics.php', 'ads.php'];
+$adNavigationPages = ['ad-revenue.php', 'ad-analytics.php', 'ad-control.php', 'ad-spaces-manager.php', 'ad-analytics.php', 'ads.php', 'create-ad-campaign.php'];
 ?>
 
 <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
@@ -77,6 +77,11 @@ $adNavigationPages = ['ad-revenue.php', 'ad-analytics.php', 'ad-control.php', 'a
             <span>Advertising</span>
         </h6>
         <ul class="nav flex-column mb-2">
+            <li class="nav-item">
+                <a class="nav-link <?php echo $currentAdminPage === 'create-ad-campaign.php' ? 'active' : ''; ?>" href="create-ad-campaign.php">
+                    <i class="fas fa-bullhorn"></i> Create Campaign
+                </a>
+            </li>
             <li class="nav-item">
                 <a class="nav-link <?php echo $currentAdminPage === 'ad-revenue.php' ? 'active' : ''; ?>" href="ad-revenue.php">
                     <i class="fas fa-clipboard-check"></i> Campaign Approvals
