@@ -280,18 +280,27 @@ class SiteHealthChecker {
             $stmt->execute();
         } else {
             // Increment failure count and check if should mark as dead
-            $update_query = "UPDATE sites SET 
-                           consecutive_failures = consecutive_failures + 1, 
+            $update_query = <<<'SQL'
+UPDATE sites SET
+                           consecutive_failures = consecutive_failures + 1,
                            last_health_check = NOW(),
-                           is_dead = CASE 
-                               WHEN consecutive_failures >= 2 THEN TRUE 
-                               ELSE is_dead 
-                           END,
-                           first_failure_at = CASE 
-                               WHEN consecutive_failures = 0 THEN NOW() 
-                               ELSE first_failure_at 
+                           is_dead = CASE
+                               WHEN consecutive_failures >= 2 THEN TRUE
+                               ELSE is_dead
                            END
-                           WHERE id = :site_id";
+SQL;
+
+            if ($this->tableHasColumn('sites', 'first_failure_at')) {
+                $update_query .= <<<'SQL'
+,
+                           first_failure_at = CASE
+                               WHEN consecutive_failures = 0 THEN NOW()
+                               ELSE first_failure_at
+                           END
+SQL;
+            }
+
+            $update_query .= "\n                           WHERE id = :site_id";
             $stmt = $this->db->prepare($update_query);
             $stmt->bindParam(':site_id', $site_id);
             $stmt->execute();
@@ -435,7 +444,7 @@ class SiteHealthChecker {
             'shc.status_code',
             $this->tableHasColumn('site_health_checks', 'check_count') ? 'shc.check_count' : 'NULL AS check_count',
             's.consecutive_failures',
-            's.first_failure_at',
+            $this->tableHasColumn('sites', 'first_failure_at') ? 's.first_failure_at' : 'NULL AS first_failure_at',
             's.uptime_percentage',
             'u.username as submitted_by_username'
         ];
