@@ -4,36 +4,9 @@ class SiteHealthChecker {
     private $timeout = 15;
     private $max_redirects = 3;
     private $user_agent = 'Mozilla/5.0 (compatible; CryptoEarn Health Checker/1.0)';
-    private $columnExistenceCache = [];
-
+    
     public function __construct($database) {
         $this->db = $database;
-    }
-
-    /**
-     * Check if a database column exists (cached per request)
-     */
-    private function tableHasColumn($table, $column) {
-        $cacheKey = $table . '.' . $column;
-
-        if (array_key_exists($cacheKey, $this->columnExistenceCache)) {
-            return $this->columnExistenceCache[$cacheKey];
-        }
-
-        try {
-            $stmt = $this->db->prepare(
-                "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table AND COLUMN_NAME = :column"
-            );
-            $stmt->bindParam(':table', $table);
-            $stmt->bindParam(':column', $column);
-            $stmt->execute();
-            $exists = $stmt->fetchColumn() > 0;
-        } catch (Exception $e) {
-            $exists = false;
-        }
-
-        $this->columnExistenceCache[$cacheKey] = $exists;
-        return $exists;
     }
     
     /**
@@ -205,45 +178,38 @@ class SiteHealthChecker {
      * Log health check result with enhanced data
      */
     private function logHealthCheck($site_id, $url, $result) {
-        try {
-            // Insert or update health check record
-            $query = "INSERT INTO site_health_checks
-                     (site_id, url_checked, status_code, response_time, is_accessible, error_message, ssl_valid, content_length, server_info, last_checked)
-                     VALUES (:site_id, :url, :status_code, :response_time, :accessible, :error_message, :ssl_valid, :content_length, :server_info, NOW())
-                     ON DUPLICATE KEY UPDATE
-                     status_code = VALUES(status_code),
-                     response_time = VALUES(response_time),
-                     is_accessible = VALUES(is_accessible),
-                     error_message = VALUES(error_message),
-                     ssl_valid = VALUES(ssl_valid),
-                     content_length = VALUES(content_length),
-                     server_info = VALUES(server_info),
-                     last_checked = NOW()";
-
-            if ($this->tableHasColumn('site_health_checks', 'check_count')) {
-                $query .= ",
-                     check_count = check_count + 1";
-            }
-
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':site_id', $site_id);
-            $stmt->bindParam(':url', $url);
-            $stmt->bindParam(':status_code', $result['status_code']);
-            $stmt->bindParam(':response_time', $result['response_time']);
-            $stmt->bindParam(':accessible', $result['accessible']);
-            $stmt->bindParam(':error_message', $result['error_message']);
-            $stmt->bindParam(':ssl_valid', $result['ssl_valid']);
-            $stmt->bindParam(':content_length', $result['content_length']);
-            $stmt->bindParam(':server_info', $result['server_info']);
-            $stmt->execute();
-            
-            // Update site health status
-            $this->updateSiteHealthStatus($site_id, $result['accessible'], $result['response_time']);
-            
-        } catch (Exception $e) {
-            error_log("Health check logging failed: " . $e->getMessage());
-        }
+    try {
+        $query = "INSERT INTO site_health_checks 
+                 (site_id, url_checked, status_code, response_time, is_accessible, error_message, ssl_valid, content_length, server_info, last_checked) 
+                 VALUES (:site_id, :url, :status_code, :response_time, :accessible, :error_message, :ssl_valid, :content_length, :server_info, NOW())
+                 ON DUPLICATE KEY UPDATE
+                 status_code = VALUES(status_code),
+                 response_time = VALUES(response_time),
+                 is_accessible = VALUES(is_accessible),
+                 error_message = VALUES(error_message),
+                 ssl_valid = VALUES(ssl_valid),
+                 content_length = VALUES(content_length),
+                 server_info = VALUES(server_info),
+                 last_checked = NOW(),
+                 check_count = check_count + 1";
+        
+        $stmt = $this->db->prepare($query);
+        $stmt->bindParam(':site_id', $site_id);
+        $stmt->bindParam(':url', $url);
+        $stmt->bindParam(':status_code', $result['status_code']);
+        $stmt->bindParam(':response_time', $result['response_time']);
+        $stmt->bindParam(':accessible', $result['accessible'], PDO::PARAM_BOOL);
+        $stmt->bindParam(':error_message', $result['error_message']);
+        $stmt->bindParam(':ssl_valid', $result['ssl_valid'], PDO::PARAM_BOOL);
+        $stmt->bindParam(':content_length', $result['content_length']);
+        $stmt->bindParam(':server_info', $result['server_info']);
+        $stmt->execute();
+        
+        $this->updateSiteHealthStatus($site_id, $result['accessible'], $result['response_time']);
+    } catch (Exception $e) {
+        error_log("Health check logging failed: " . $e->getMessage());
     }
+}
     
     /**
      * Update site health status with enhanced tracking
@@ -280,27 +246,18 @@ class SiteHealthChecker {
             $stmt->execute();
         } else {
             // Increment failure count and check if should mark as dead
-            $update_query = <<<'SQL'
-UPDATE sites SET
-                           consecutive_failures = consecutive_failures + 1,
+            $update_query = "UPDATE sites SET 
+                           consecutive_failures = consecutive_failures + 1, 
                            last_health_check = NOW(),
-                           is_dead = CASE
-                               WHEN consecutive_failures >= 2 THEN TRUE
-                               ELSE is_dead
+                           is_dead = CASE 
+                               WHEN consecutive_failures >= 2 THEN TRUE 
+                               ELSE is_dead 
+                           END,
+                           first_failure_at = CASE 
+                               WHEN consecutive_failures = 0 THEN NOW() 
+                               ELSE first_failure_at 
                            END
-SQL;
-
-            if ($this->tableHasColumn('sites', 'first_failure_at')) {
-                $update_query .= <<<'SQL'
-,
-                           first_failure_at = CASE
-                               WHEN consecutive_failures = 0 THEN NOW()
-                               ELSE first_failure_at
-                           END
-SQL;
-            }
-
-            $update_query .= "\n                           WHERE id = :site_id";
+                           WHERE id = :site_id";
             $stmt = $this->db->prepare($update_query);
             $stmt->bindParam(':site_id', $site_id);
             $stmt->execute();
@@ -436,31 +393,30 @@ SQL;
      * Get sites that appear to be dead with enhanced data
      */
     public function getDeadSites() {
-        $selectFields = [
-            's.*',
-            'shc.error_message',
-            'shc.last_checked',
-            'shc.response_time',
-            'shc.status_code',
-            $this->tableHasColumn('site_health_checks', 'check_count') ? 'shc.check_count' : 'NULL AS check_count',
-            's.consecutive_failures',
-            $this->tableHasColumn('sites', 'first_failure_at') ? 's.first_failure_at' : 'NULL AS first_failure_at',
-            's.uptime_percentage',
-            'u.username as submitted_by_username'
-        ];
-
-        $query = "SELECT " . implode(",\n                 ", $selectFields) . "
-                 FROM sites s
-                 LEFT JOIN site_health_checks shc ON s.id = shc.site_id
-                 LEFT JOIN users u ON s.submitted_by = u.id
-                 WHERE s.is_dead = TRUE
-                 AND s.admin_approved_dead = FALSE
-                 AND s.is_approved = 1
-                 ORDER BY s.consecutive_failures DESC, shc.last_checked DESC";
-        $stmt = $this->db->prepare($query);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
+    $query = "SELECT s.*, 
+             shc.error_message, 
+             shc.last_checked, 
+             shc.response_time,
+             shc.status_code,
+             shc.check_count,
+             shc.ssl_valid,
+             shc.content_length,
+             shc.server_info,
+             s.consecutive_failures,
+             s.first_failure_at,
+             s.uptime_percentage,
+             u.username as submitted_by_username
+             FROM sites s
+             LEFT JOIN site_health_checks shc ON s.id = shc.site_id
+             LEFT JOIN users u ON s.submitted_by = u.id
+             WHERE s.is_dead = TRUE 
+             AND s.admin_approved_dead = FALSE
+             AND s.is_approved = 1
+             ORDER BY s.consecutive_failures DESC, shc.last_checked DESC";
+    $stmt = $this->db->prepare($query);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
     
     /**
      * Get health statistics for dashboard
