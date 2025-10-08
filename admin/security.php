@@ -8,7 +8,6 @@ $auth = new Auth();
 $database = new Database();
 $db = $database->getConnection();
 $security = new SecurityManager($db);
-
 // Redirect if not admin
 if (!$auth->isAdmin()) {
     header('Location: ../login.php');
@@ -106,7 +105,7 @@ $blocked_ips_query = "SELECT bi.*, u.username as blocked_by_username
                      FROM blocked_ips bi
                      JOIN users u ON bi.blocked_by = u.id
                      WHERE bi.is_permanent = 1 OR bi.expires_at > NOW()
-                     ORDER BY bi.created_at DESC";
+                     ORDER BY bi.id DESC";
 $blocked_ips_stmt = $db->prepare($blocked_ips_query);
 $blocked_ips_stmt->execute();
 $blocked_ips = $blocked_ips_stmt->fetchAll(PDO::FETCH_ASSOC);
