@@ -142,14 +142,20 @@ $page_title = 'Support Tickets - Admin Panel';
 include 'includes/admin_header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include 'includes/admin_sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Support Tickets</h1>
+<?php include 'includes/admin_sidebar.php'; ?>
+
+<main class="admin-main">
+    <div class="admin-page-header">
+        <div>
+            <div class="admin-breadcrumb">
+                <i class="fas fa-life-ring text-primary"></i>
+                <span>Operations</span>
+                <span class="text-muted">Support</span>
             </div>
+            <h1>Support Mission Desk</h1>
+            <p class="text-muted mb-0">Track escalations, assign responders, and delight the community.</p>
+        </div>
+    </div>
 
             <?php if ($success_message): ?>
                 <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
@@ -159,77 +165,61 @@ include 'includes/admin_header.php';
                 <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
             <?php endif; ?>
 
-            <!-- Ticket Statistics -->
-            <div class="row mb-4">
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-primary shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Tickets</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($ticket_stats['total_tickets']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-ticket-simple fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
+    <!-- Ticket Statistics -->
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Total Tickets</p>
+                        <p class="metric-value mb-1"><?php echo number_format($ticket_stats['total_tickets']); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-life-ring"></i>Queue volume</span>
                     </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-warning shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Open Tickets</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($ticket_stats['open_tickets']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-exclamation-circle fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-success shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Replied Tickets</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($ticket_stats['replied_tickets']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-reply fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-xl-3 col-md-6 mb-4">
-                    <div class="card border-left-danger shadow h-100 py-2">
-                        <div class="card-body">
-                            <div class="row no-gutters align-items-center">
-                                <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">High Priority</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($ticket_stats['high_priority']); ?></div>
-                                </div>
-                                <div class="col-auto">
-                                    <i class="fas fa-fire fa-2x text-gray-300"></i>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-ticket-simple"></i></span>
                 </div>
             </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Open Tickets</p>
+                        <p class="metric-value mb-1"><?php echo number_format($ticket_stats['open_tickets']); ?></p>
+                        <span class="metric-trend <?php echo $ticket_stats['open_tickets'] > 0 ? 'down' : 'up'; ?>"><i class="fas fa-inbox"></i><?php echo $ticket_stats['open_tickets'] > 0 ? 'Needs attention' : 'All clear'; ?></span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-envelope-open-text"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Replied Tickets</p>
+                        <p class="metric-value mb-1"><?php echo number_format($ticket_stats['replied_tickets']); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-reply"></i>Rapid responses</span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-comments"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">High Priority</p>
+                        <p class="metric-value mb-1"><?php echo number_format($ticket_stats['high_priority']); ?></p>
+                        <span class="metric-trend <?php echo $ticket_stats['high_priority'] > 0 ? 'down' : 'up'; ?>"><i class="fas fa-fire"></i><?php echo $ticket_stats['high_priority'] > 0 ? 'Escalations pending' : 'No fires'; ?></span>
+                    </div>
+                    <span class="icon-wrapper"><i class="fas fa-bolt"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            <!-- Filters -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <form method="GET" class="row g-3">
+    <!-- Filters -->
+    <div class="admin-content-wrapper mb-4">
+        <form method="GET" class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label">Status</label>
                             <select name="status" class="form-select">
@@ -252,13 +242,11 @@ include 'includes/admin_header.php';
                             <label class="form-label">&nbsp;</label>
                             <button type="submit" class="btn btn-primary d-block">Filter</button>
                         </div>
-                    </form>
-                </div>
-            </div>
+        </form>
+    </div>
 
-            <!-- Tickets List -->
-            <div class="card shadow mb-4">
-                <div class="card-body">
+    <!-- Tickets List -->
+    <div class="admin-content-wrapper">
                     <?php if (!empty($tickets)): ?>
                         <?php foreach ($tickets as $ticket): ?>
                         <div class="border-bottom pb-3 mb-3">
@@ -326,11 +314,8 @@ include 'includes/admin_header.php';
                             <p class="text-muted">No tickets match your current filters.</p>
                         </div>
                     <?php endif; ?>
-                </div>
-            </div>
-        </main>
     </div>
-</div>
+</main>
 
 <!-- Reply Modal -->
 <div class="modal fade" id="replyModal" tabindex="-1">

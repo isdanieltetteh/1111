@@ -112,109 +112,168 @@ $ads_stmt = $db->prepare($ads_query);
 $ads_stmt->execute();
 $ads = $ads_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$active_ads = 0;
+$paused_ads = 0;
+foreach ($ads as $ad_overview) {
+    if (!empty($ad_overview['is_active'])) {
+        $active_ads++;
+    } else {
+        $paused_ads++;
+    }
+}
+
 $page_title = 'Ad Management - Admin Panel';
 include 'includes/admin_header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include 'includes/admin_sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Ad Management</h1>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAdModal">
-                    <i class="fas fa-plus"></i> Add New Ad
-                </button>
+<?php include 'includes/admin_sidebar.php'; ?>
+
+<main class="admin-main">
+    <div class="admin-page-header">
+        <div>
+            <div class="admin-breadcrumb">
+                <i class="fas fa-ad text-primary"></i>
+                <span>Revenue</span>
+                <span class="text-muted">Ad Control</span>
             </div>
+            <h1>Ad Command Center</h1>
+            <p class="text-muted mb-0">Deploy, pause, and optimize every placement in one view.</p>
+        </div>
+        <button class="btn btn-primary shadow-hover" data-bs-toggle="modal" data-bs-target="#addAdModal">
+            <i class="fas fa-plus"></i> Add New Ad
+        </button>
+    </div>
 
-            <?php if ($success_message): ?>
-                <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
-            <?php endif; ?>
-            
-            <?php if ($error_message): ?>
-                <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
-            <?php endif; ?>
+    <?php if ($success_message): ?>
+        <div class="alert alert-success shadow-sm border-0"><?php echo htmlspecialchars($success_message); ?></div>
+    <?php endif; ?>
 
-            <!-- Ads List -->
-            <div class="card">
-                <div class="card-body">
-                    <?php if (!empty($ads)): ?>
-                        <div class="table-responsive">
-                            <table class="table table-striped">
-                                <thead>
-                                    <tr>
-                                        <th>Title</th>
-                                        <th>Type</th>
-                                        <th>Status</th>
-                                        <th>Sort Order</th>
-                                        <th>Created</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($ads as $ad): ?>
-                                    <tr>
-                                        <td>
-                                            <strong><?php echo htmlspecialchars($ad['title']); ?></strong>
-                                            <?php if ($ad['type'] === 'image' && $ad['image_url']): ?>
-                                                <br><small class="text-muted"><?php echo htmlspecialchars($ad['image_url']); ?></small>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-<?php echo $ad['type'] === 'image' ? 'primary' : 'secondary'; ?>">
-                                                <?php echo ucfirst($ad['type']); ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-<?php echo $ad['is_active'] ? 'success' : 'danger'; ?>">
-                                                <?php echo $ad['is_active'] ? 'Active' : 'Inactive'; ?>
-                                            </span>
-                                        </td>
-                                        <td><?php echo $ad['sort_order']; ?></td>
-                                        <td><?php echo date('M j, Y', strtotime($ad['created_at'])); ?></td>
-                                        <td>
-                                            <div class="btn-group btn-group-sm">
-                                                <button class="btn btn-outline-primary" 
-                                                        onclick="editAd(<?php echo htmlspecialchars(json_encode($ad)); ?>)">
-                                                    Edit
-                                                </button>
-                                                
-                                                <form method="POST" class="d-inline">
-                                                    <input type="hidden" name="action" value="toggle">
-                                                    <input type="hidden" name="ad_id" value="<?php echo $ad['id']; ?>">
-                                                    <button type="submit" class="btn btn-outline-warning">
-                                                        <?php echo $ad['is_active'] ? 'Disable' : 'Enable'; ?>
-                                                    </button>
-                                                </form>
-                                                
-                                                <form method="POST" class="d-inline">
-                                                    <input type="hidden" name="action" value="delete">
-                                                    <input type="hidden" name="ad_id" value="<?php echo $ad['id']; ?>">
-                                                    <button type="submit" class="btn btn-outline-danger">Delete</button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php else: ?>
-                        <div class="text-center py-4">
-                            <i class="fas fa-ad fa-3x text-muted mb-3"></i>
-                            <h5>No ads created yet</h5>
-                            <p class="text-muted">Create your first ad to start monetizing redirect pages.</p>
-                            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAdModal">
-                                Create First Ad
-                            </button>
-                        </div>
-                    <?php endif; ?>
+    <?php if ($error_message): ?>
+        <div class="alert alert-danger shadow-sm border-0"><?php echo htmlspecialchars($error_message); ?></div>
+    <?php endif; ?>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-3 col-sm-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Active Placements</p>
+                        <p class="metric-value mb-1"><?php echo number_format($active_ads); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-signal"></i>Live inventory</span>
+                    </div>
+                    <span class="metric-icon success"><i class="fas fa-circle-play"></i></span>
                 </div>
             </div>
-        </main>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Paused Spots</p>
+                        <p class="metric-value mb-1"><?php echo number_format($paused_ads); ?></p>
+                        <span class="metric-trend warning"><i class="fas fa-circle-pause"></i>Ready to relaunch</span>
+                    </div>
+                    <span class="metric-icon warning"><i class="fas fa-circle-pause"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="admin-subtle-card h-100">
+                <h6>Placement Strategy</h6>
+                <p class="mb-2">Keep your highest converting creatives at the top of the list. Use the sort order to prioritize featured sponsors and seasonal promos.</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <span class="admin-pill"><span class="dot"></span> Banner Ready</span>
+                    <span class="admin-pill"><span class="dot"></span> Direct HTML</span>
+                    <span class="admin-pill"><span class="dot"></span> Rotation Friendly</span>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
+
+    <div class="admin-content-wrapper">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="admin-section-title">Live Placements</h2>
+                <p class="admin-section-subtitle mb-0">Manage delivery rules, creative assets, and placement visibility.</p>
+            </div>
+        </div>
+
+        <?php if (!empty($ads)): ?>
+            <div class="table-responsive">
+                <table class="table table-hover admin-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Sort Order</th>
+                            <th>Created</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($ads as $ad): ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo htmlspecialchars($ad['title']); ?></strong>
+                                <?php if ($ad['type'] === 'image' && $ad['image_url']): ?>
+                                    <div class="table-meta">Image: <?php echo htmlspecialchars($ad['image_url']); ?></div>
+                                <?php endif; ?>
+                                <?php if ($ad['type'] === 'html' && $ad['html_content']): ?>
+                                    <div class="table-meta">Custom HTML payload</div>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="status-chip <?php echo $ad['type'] === 'image' ? 'info' : 'muted'; ?>">
+                                    <i class="fas <?php echo $ad['type'] === 'image' ? 'fa-image' : 'fa-code'; ?>"></i>
+                                    <?php echo ucfirst($ad['type']); ?>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="status-chip <?php echo $ad['is_active'] ? 'success' : 'danger'; ?>">
+                                    <i class="fas <?php echo $ad['is_active'] ? 'fa-circle-check' : 'fa-circle-xmark'; ?>"></i>
+                                    <?php echo $ad['is_active'] ? 'Active' : 'Paused'; ?>
+                                </span>
+                            </td>
+                            <td><?php echo (int) $ad['sort_order']; ?></td>
+                            <td class="table-meta"><?php echo date('M j, Y', strtotime($ad['created_at'])); ?></td>
+                            <td class="text-end">
+                                <div class="table-action-group justify-content-end">
+                                    <button class="btn btn-outline-primary btn-sm"
+                                            onclick="editAd(<?php echo htmlspecialchars(json_encode($ad)); ?>)">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+
+                                    <form method="POST">
+                                        <input type="hidden" name="action" value="toggle">
+                                        <input type="hidden" name="ad_id" value="<?php echo $ad['id']; ?>">
+                                        <button type="submit" class="btn btn-outline-warning btn-sm">
+                                            <?php echo $ad['is_active'] ? '<i class=\'fas fa-pause\'></i>' : '<i class=\'fas fa-play\'></i>'; ?>
+                                        </button>
+                                    </form>
+
+                                    <form method="POST">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="ad_id" value="<?php echo $ad['id']; ?>">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <div class="admin-subtle-card text-center">
+                <h6>No placements configured</h6>
+                <p class="mb-0">Use the add placement button to launch your first banner, interstitial, or HTML slot.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+</main>
 
 <!-- Add Ad Modal -->
 <div class="modal fade" id="addAdModal" tabindex="-1">

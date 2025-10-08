@@ -529,225 +529,328 @@ if ($approval_filter !== 'all') {
                 ORDER BY s.created_at DESC
                 LIMIT {$per_page} OFFSET {$offset}";
 
- $sites_stmt = $db->prepare($sites_query);
- $sites_stmt->execute($params);
- $sites = $sites_stmt->fetchAll(PDO::FETCH_ASSOC);
+$sites_stmt = $db->prepare($sites_query);
+$sites_stmt->execute($params);
+$sites = $sites_stmt->fetchAll(PDO::FETCH_ASSOC);
 
- $page_title = 'Sites Management - Admin Panel';
+$site_overview_query = "SELECT
+    COUNT(*) as total_sites,
+    SUM(CASE WHEN is_approved = 1 THEN 1 ELSE 0 END) as approved_sites,
+    SUM(CASE WHEN is_approved = 0 THEN 1 ELSE 0 END) as pending_sites,
+    SUM(CASE WHEN status = 'scam' THEN 1 ELSE 0 END) as flagged_sites,
+    SUM(CASE WHEN is_featured = 1 THEN 1 ELSE 0 END) as featured_sites,
+    SUM(CASE WHEN is_sponsored = 1 THEN 1 ELSE 0 END) as sponsored_sites
+    FROM sites";
+$site_overview_stmt = $db->prepare($site_overview_query);
+$site_overview_stmt->execute();
+$site_overview = $site_overview_stmt->fetch(PDO::FETCH_ASSOC) ?: [
+    'total_sites' => 0,
+    'approved_sites' => 0,
+    'pending_sites' => 0,
+    'flagged_sites' => 0,
+    'featured_sites' => 0,
+    'sponsored_sites' => 0,
+];
+
+$page_title = 'Sites Management - Admin Panel';
 include 'includes/admin_header.php';
 ?>
 
-<div class="container-fluid">
-    <div class="row">
-        <?php include 'includes/admin_sidebar.php'; ?>
-        
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Sites Management</h1>
-                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSiteModal">
-                    <i class="fas fa-plus"></i> Add New Site
-                </button>
+<?php include 'includes/admin_sidebar.php'; ?>
+
+<main class="admin-main">
+    <div class="admin-page-header">
+        <div>
+            <div class="admin-breadcrumb">
+                <i class="fas fa-globe text-primary"></i>
+                <span>Directory</span>
+                <span class="text-muted">Sites</span>
             </div>
-
-            <?php if ($success_message): ?>
-                <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
-            <?php endif; ?>
-            
-            <?php if ($error_message): ?>
-                <div class="alert alert-danger"><?php echo htmlspecialchars($error_message); ?></div>
-            <?php endif; ?>
-
-            <!-- Filters -->
-            <div class="card mb-4">
-                <div class="card-body">
-                    <form method="GET" class="row g-3">
-                        <div class="col-md-3">
-                            <label class="form-label">Status</label>
-                            <select name="status" class="form-select">
-                                <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Status</option>
-                                <option value="paying" <?php echo $status_filter === 'paying' ? 'selected' : ''; ?>>Paying</option>
-                                <option value="scam_reported" <?php echo $status_filter === 'scam_reported' ? 'selected' : ''; ?>>Scam Reported</option>
-                                <option value="scam" <?php echo $status_filter === 'scam' ? 'selected' : ''; ?>>Scam</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Category</label>
-                            <select name="category" class="form-select">
-                                <option value="all" <?php echo $category_filter === 'all' ? 'selected' : ''; ?>>All Categories</option>
-                                <option value="faucet" <?php echo $category_filter === 'faucet' ? 'selected' : ''; ?>>Faucets</option>
-                                <option value="url_shortener" <?php echo $category_filter === 'url_shortener' ? 'selected' : ''; ?>>URL Shorteners</option>
-                                <option value="mining" <?php echo $category_filter === 'mining' ? 'selected' : ''; ?>>Mining</option>
-                                <option value="staking" <?php echo $category_filter === 'staking' ? 'selected' : ''; ?>>Staking</option>
-                                <option value="trading" <?php echo $category_filter === 'trading' ? 'selected' : ''; ?>>Trading</option>
-                                <option value="games" <?php echo $category_filter === 'games' ? 'selected' : ''; ?>>Games</option>
-                                <option value="surveys" <?php echo $category_filter === 'surveys' ? 'selected' : ''; ?>>Surveys</option>
-                                <option value="other" <?php echo $category_filter === 'other' ? 'selected' : ''; ?>>Other</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">Approval</label>
-                            <select name="approval" class="form-select">
-                                <option value="all" <?php echo $approval_filter === 'all' ? 'selected' : ''; ?>>All</option>
-                                <option value="approved" <?php echo $approval_filter === 'approved' ? 'selected' : ''; ?>>Approved</option>
-                                <option value="pending" <?php echo $approval_filter === 'pending' ? 'selected' : ''; ?>>Pending</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label">&nbsp;</label>
-                            <button type="submit" class="btn btn-primary d-block">Filter</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Sites Table -->
-            <div class="card">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Site</th>
-                                    <th>Category</th>
-                                    <th>Status</th>
-                                    <th>Rating</th>
-                                    <th>Reviews</th>
-                                    <th>Submitted By</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($sites as $site): ?>
-                                <tr>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <img src="../<?php echo htmlspecialchars($site['logo'] ?: 'assets/images/default-logo.png'); ?>" 
-                                                 class="rounded me-2" width="32" height="32">
-                                            <div>
-                                                <strong><?php echo htmlspecialchars($site['name']); ?></strong>
-                                                <?php if ($site['is_featured']): ?>
-                                                    <span class="badge bg-warning ms-1">Featured</span>
-                                                <?php endif; ?>
-                                                <?php if ($site['is_sponsored']): ?>
-                                                    <span class="badge bg-primary ms-1">Sponsored</span>
-                                                <?php endif; ?>
-                                                <?php if ($site['is_boosted']): ?>
-                                                    <span class="badge bg-info ms-1">Boosted</span>
-                                                <?php endif; ?>
-                                                <br>
-                                                <small class="text-muted"><?php echo htmlspecialchars($site['url']); ?></small>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <span class="badge bg-secondary">
-                                            <?php echo ucfirst(str_replace('_', ' ', $site['category'])); ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <?php
-                                        $status_badges = [
-                                            'paying' => '<span class="badge bg-success">✅ Paying</span>',
-                                            'scam_reported' => '<span class="badge bg-warning">⚠ Scam Reported</span>',
-                                            'scam' => '<span class="badge bg-danger">❌ Scam</span>'
-                                        ];
-                                        echo $status_badges[$site['status']] ?? '';
-                                        ?>
-                                        <?php if (!$site['is_approved']): ?>
-                                            <br><span class="badge bg-secondary mt-1">Pending Approval</span>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td>
-                                        <strong><?php echo number_format($site['average_rating'], 1); ?>/5</strong>
-                                    </td>
-                                    <td><?php echo $site['review_count']; ?></td>
-                                    <td><?php echo htmlspecialchars($site['submitted_by_username'] ?: 'Unknown'); ?></td>
-                                    <td>
-                                        <div class="btn-group-vertical btn-group-sm">
-                                            <button class="btn btn-info btn-sm" 
-                                                    onclick="viewSiteDetails(<?php echo htmlspecialchars(json_encode($site)); ?>)">
-                                                View Details
-                                            </button>
-                                            
-                                            <button class="btn btn-warning btn-sm" 
-                                                    onclick="editSiteDetails(<?php echo htmlspecialchars(json_encode($site)); ?>)">
-                                                Edit Site
-                                            </button>
-                                            
-                                            <?php if (!$site['is_approved']): ?>
-                                                <a href="?action=approve&id=<?php echo $site['id']; ?>" 
-                                                   class="btn btn-success btn-sm">Approve</a>
-                                                <a href="?action=reject&id=<?php echo $site['id']; ?>" 
-                                                   class="btn btn-secondary btn-sm">Reject</a>
-                                            <?php endif; ?>
-                                            
-                                            <?php if ($site['status'] !== 'scam'): ?>
-                                                <a href="?action=mark_scam&id=<?php echo $site['id']; ?>" 
-                                                   class="btn btn-danger btn-sm">Mark Scam</a>
-                                            <?php endif; ?>
-                                            
-                                          
-                                            
-                                            <form method="POST" class="d-inline">
-                                                <input type="hidden" name="action" value="sponsored">
-                                                <input type="hidden" name="site_id" value="<?php echo $site['id']; ?>">
-                                                <input type="hidden" name="sponsored" value="<?php echo $site['is_sponsored'] ? 0 : 1; ?>">
-                                                <button type="submit" class="btn btn-primary btn-sm">
-                                                    <?php echo $site['is_sponsored'] ? 'Unsponsor' : 'Sponsor'; ?>
-                                                </button>
-                                            </form>
-
-                                            <form method="POST" class="d-inline">
-                                                <input type="hidden" name="action" value="boosted">
-                                                <input type="hidden" name="site_id" value="<?php echo $site['id']; ?>">
-                                                <input type="hidden" name="boosted" value="<?php echo $site['is_boosted'] ? 0 : 1; ?>">
-                                                <button type="submit" class="btn btn-info btn-sm">
-                                                    <?php echo $site['is_boosted'] ? 'Unboost' : 'Boost'; ?>
-                                                </button>
-                                            </form>
-                                            
-                                            <a href="../review.php?id=<?php echo $site['id']; ?>" 
-                                               class="btn btn-info btn-sm" target="_blank">View</a>
-                                            
-                                            <a href="?action=delete&id=<?php echo $site['id']; ?>" 
-                                               class="btn btn-danger btn-sm">Delete</a>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Pagination -->
-                    <?php if ($total_pages > 1): ?>
-                        <nav>
-                            <ul class="pagination justify-content-center">
-                                <?php if ($page > 1): ?>
-                                    <li class="page-item">
-                                        <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>">Previous</a>
-                                    </li>
-                                <?php endif; ?>
-                                
-                                <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
-                                    <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
-                                        <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>"><?php echo $i; ?></a>
-                                    </li>
-                                <?php endfor; ?>
-                                
-                                <?php if ($page < $total_pages): ?>
-                                    <li class="page-item">
-                                        <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>">Next</a>
-                                    </li>
-                                <?php endif; ?>
-                            </ul>
-                        </nav>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </main>
+            <h1>Site Intelligence Hub</h1>
+            <p class="text-muted mb-0">Approve, elevate, and audit every listing in the ecosystem.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-primary shadow-hover" data-bs-toggle="modal" data-bs-target="#addSiteModal">
+                <i class="fas fa-plus"></i> Add Site
+            </button>
+        </div>
     </div>
-</div>
+
+    <?php if ($success_message): ?>
+        <div class="alert alert-success shadow-sm border-0"><?php echo htmlspecialchars($success_message); ?></div>
+    <?php endif; ?>
+
+    <?php if ($error_message): ?>
+        <div class="alert alert-danger shadow-sm border-0"><?php echo htmlspecialchars($error_message); ?></div>
+    <?php endif; ?>
+
+    <div class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Total Sites</p>
+                        <p class="metric-value mb-1"><?php echo number_format($site_overview['total_sites']); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-layer-group"></i>Growing network</span>
+                    </div>
+                    <span class="metric-icon info"><i class="fas fa-globe"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Approved</p>
+                        <p class="metric-value mb-1"><?php echo number_format($site_overview['approved_sites']); ?></p>
+                        <span class="metric-trend up"><i class="fas fa-circle-check"></i>Trusted live</span>
+                    </div>
+                    <span class="metric-icon success"><i class="fas fa-badge-check"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Pending Queue</p>
+                        <p class="metric-value mb-1"><?php echo number_format($site_overview['pending_sites']); ?></p>
+                        <span class="metric-trend warning"><i class="fas fa-hourglass-half"></i>Needs review</span>
+                    </div>
+                    <span class="metric-icon warning"><i class="fas fa-hourglass-half"></i></span>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="admin-metric-card h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <p class="metric-label">Flagged</p>
+                        <p class="metric-value mb-1"><?php echo number_format($site_overview['flagged_sites']); ?></p>
+                        <span class="metric-trend down"><i class="fas fa-skull-crossbones"></i>Risk watch</span>
+                    </div>
+                    <span class="metric-icon danger"><i class="fas fa-user-shield"></i></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="admin-content-wrapper mb-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="admin-section-title">Directory Filters</h2>
+                <p class="admin-section-subtitle mb-0">Slice listings by trust, monetization, and review state.</p>
+            </div>
+        </div>
+        <form method="GET" class="admin-toolbar">
+            <div>
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Status</option>
+                    <option value="paying" <?php echo $status_filter === 'paying' ? 'selected' : ''; ?>>Paying</option>
+                    <option value="scam_reported" <?php echo $status_filter === 'scam_reported' ? 'selected' : ''; ?>>Scam Reported</option>
+                    <option value="scam" <?php echo $status_filter === 'scam' ? 'selected' : ''; ?>>Scam</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Category</label>
+                <select name="category" class="form-select">
+                    <option value="all" <?php echo $category_filter === 'all' ? 'selected' : ''; ?>>All Categories</option>
+                    <option value="faucet" <?php echo $category_filter === 'faucet' ? 'selected' : ''; ?>>Faucets</option>
+                    <option value="url_shortener" <?php echo $category_filter === 'url_shortener' ? 'selected' : ''; ?>>URL Shorteners</option>
+                    <option value="mining" <?php echo $category_filter === 'mining' ? 'selected' : ''; ?>>Mining</option>
+                    <option value="staking" <?php echo $category_filter === 'staking' ? 'selected' : ''; ?>>Staking</option>
+                    <option value="trading" <?php echo $category_filter === 'trading' ? 'selected' : ''; ?>>Trading</option>
+                    <option value="games" <?php echo $category_filter === 'games' ? 'selected' : ''; ?>>Games</option>
+                    <option value="surveys" <?php echo $category_filter === 'surveys' ? 'selected' : ''; ?>>Surveys</option>
+                    <option value="other" <?php echo $category_filter === 'other' ? 'selected' : ''; ?>>Other</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label">Approval</label>
+                <select name="approval" class="form-select">
+                    <option value="all" <?php echo $approval_filter === 'all' ? 'selected' : ''; ?>>All</option>
+                    <option value="approved" <?php echo $approval_filter === 'approved' ? 'selected' : ''; ?>>Approved</option>
+                    <option value="pending" <?php echo $approval_filter === 'pending' ? 'selected' : ''; ?>>Pending</option>
+                </select>
+            </div>
+            <div class="ms-auto">
+                <label class="form-label">&nbsp;</label>
+                <div class="d-flex gap-2">
+                    <a href="sites.php" class="btn btn-outline-secondary">Reset</a>
+                    <button type="submit" class="btn btn-primary">Apply</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Sites Table -->
+    <div class="admin-content-wrapper">
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+            <div>
+                <h2 class="admin-section-title">Sites Inventory</h2>
+                <p class="admin-section-subtitle mb-0">Monitor approvals, sponsorships, and reviews at a glance.</p>
+            </div>
+        </div>
+
+        <?php if (!empty($sites)): ?>
+            <?php
+            $status_chips = [
+                'paying' => ['class' => 'success', 'icon' => 'fa-circle-check', 'label' => 'Paying'],
+                'scam_reported' => ['class' => 'warning', 'icon' => 'fa-triangle-exclamation', 'label' => 'Scam Reported'],
+                'scam' => ['class' => 'danger', 'icon' => 'fa-skull-crossbones', 'label' => 'Scam'],
+            ];
+            ?>
+            <div class="table-responsive">
+                <table class="table table-hover admin-table align-middle">
+                    <thead>
+                        <tr>
+                            <th>Site</th>
+                            <th>Category</th>
+                            <th>Status</th>
+                            <th>Rating</th>
+                            <th>Reviews</th>
+                            <th>Submitted By</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($sites as $site): ?>
+                            <?php
+                            $status_config = $status_chips[$site['status']] ?? [
+                                'class' => 'muted',
+                                'icon' => 'fa-circle',
+                                'label' => ucfirst(str_replace('_', ' ', $site['status']))
+                            ];
+                            ?>
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center gap-3">
+                                    <img src="../<?php echo htmlspecialchars($site['logo'] ?: 'assets/images/default-logo.png'); ?>" class="avatar-sm" alt="Logo">
+                                    <div>
+                                        <strong><?php echo htmlspecialchars($site['name']); ?></strong>
+                                        <div class="d-flex flex-wrap gap-2 mt-2">
+                                            <?php if ($site['is_featured']): ?>
+                                                <span class="admin-pill"><span class="dot"></span> Featured</span>
+                                            <?php endif; ?>
+                                            <?php if ($site['is_sponsored']): ?>
+                                                <span class="admin-pill"><span class="dot"></span> Sponsored</span>
+                                            <?php endif; ?>
+                                            <?php if ($site['is_boosted']): ?>
+                                                <span class="admin-pill"><span class="dot"></span> Boosted</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="table-meta mt-1"><?php echo htmlspecialchars($site['url']); ?></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="status-chip muted">
+                                    <i class="fas fa-layer-group"></i>
+                                    <?php echo ucfirst(str_replace('_', ' ', $site['category'])); ?>
+                                </span>
+                            </td>
+                            <td>
+                                <span class="status-chip <?php echo $status_config['class']; ?>">
+                                    <i class="fas <?php echo $status_config['icon']; ?>"></i>
+                                    <?php echo $status_config['label']; ?>
+                                </span>
+                                <?php if (!$site['is_approved']): ?>
+                                    <span class="status-chip warning ms-0 mt-2"><i class="fas fa-hourglass-half"></i>Pending</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="fw-semibold"><i class="fas fa-star text-warning me-1"></i><?php echo number_format($site['average_rating'], 1); ?>/5</span>
+                            </td>
+                            <td>
+                                <span class="fw-semibold"><?php echo (int) $site['review_count']; ?></span>
+                            </td>
+                            <td>
+                                <div class="table-meta"><?php echo htmlspecialchars($site['submitted_by_username'] ?: 'Unknown'); ?></div>
+                            </td>
+                            <td class="text-end">
+                                <div class="table-action-group justify-content-end">
+                                    <button class="btn btn-outline-info btn-sm" onclick="viewSiteDetails(<?php echo htmlspecialchars(json_encode($site)); ?>)" title="View details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <button class="btn btn-outline-warning btn-sm" onclick="editSiteDetails(<?php echo htmlspecialchars(json_encode($site)); ?>)" title="Edit site">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                    <?php if (!$site['is_approved']): ?>
+                                        <a href="?action=approve&id=<?php echo $site['id']; ?>" class="btn btn-success btn-sm" title="Approve">
+                                            <i class="fas fa-check"></i>
+                                        </a>
+                                        <a href="?action=reject&id=<?php echo $site['id']; ?>" class="btn btn-outline-secondary btn-sm" title="Reject">
+                                            <i class="fas fa-xmark"></i>
+                                        </a>
+                                    <?php endif; ?>
+                                    <?php if ($site['status'] !== 'scam'): ?>
+                                        <a href="?action=mark_scam&id=<?php echo $site['id']; ?>" class="btn btn-outline-danger btn-sm" title="Mark as scam">
+                                            <i class="fas fa-skull-crossbones"></i>
+                                        </a>
+                                    <?php endif; ?>
+                                    <form method="POST">
+                                        <input type="hidden" name="action" value="sponsored">
+                                        <input type="hidden" name="site_id" value="<?php echo $site['id']; ?>">
+                                        <input type="hidden" name="sponsored" value="<?php echo $site['is_sponsored'] ? 0 : 1; ?>">
+                                        <button type="submit" class="btn btn-outline-primary btn-sm" title="Toggle sponsor">
+                                            <i class="fas fa-crown"></i>
+                                        </button>
+                                    </form>
+                                    <form method="POST">
+                                        <input type="hidden" name="action" value="boosted">
+                                        <input type="hidden" name="site_id" value="<?php echo $site['id']; ?>">
+                                        <input type="hidden" name="boosted" value="<?php echo $site['is_boosted'] ? 0 : 1; ?>">
+                                        <button type="submit" class="btn btn-outline-info btn-sm" title="Toggle boost">
+                                            <i class="fas fa-rocket"></i>
+                                        </button>
+                                    </form>
+                                    <a href="../review.php?id=<?php echo $site['id']; ?>" class="btn btn-outline-info btn-sm" target="_blank" title="View public page">
+                                        <i class="fas fa-arrow-up-right-from-square"></i>
+                                    </a>
+                                    <a href="?action=delete&id=<?php echo $site['id']; ?>" class="btn btn-outline-danger btn-sm" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <?php if ($total_pages > 1): ?>
+                <nav class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <?php if ($page > 1): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page - 1])); ?>">Previous</a>
+                            </li>
+                        <?php endif; ?>
+
+                        <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
+                            <li class="page-item <?php echo $i == $page ? 'active' : ''; ?>">
+                                <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $i])); ?>"><?php echo $i; ?></a>
+                            </li>
+                        <?php endfor; ?>
+
+                        <?php if ($page < $total_pages): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="?<?php echo http_build_query(array_merge($_GET, ['page' => $page + 1])); ?>">Next</a>
+                            </li>
+                        <?php endif; ?>
+                    </ul>
+                </nav>
+            <?php endif; ?>
+        <?php else: ?>
+            <div class="admin-subtle-card text-center">
+                <h6>No sites match your filters</h6>
+                <p class="mb-0">Adjust the filters or add a new listing to populate the directory.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+</main>
 
 <!-- Site Details Modal -->
 <div class="modal fade" id="siteDetailsModal" tabindex="-1">

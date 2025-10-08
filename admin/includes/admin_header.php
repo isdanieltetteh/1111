@@ -1,163 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title ?? 'Admin Panel - ' . SITE_NAME; ?></title>
-    
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2Lw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="assets/css/theme.css?v=1">
+
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('admin-theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            }
+        })();
+    </script>
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <style>
-        body {
-            background-color: #f8f9fc;
-        }
-        
-        .sidebar {
-            position: fixed;
-            top: 0;
-            bottom: 0;
-            left: 0;
-            z-index: 100;
-            padding: 48px 0 0;
-            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .1);
-        }
-        
-        .sidebar-sticky {
-            position: relative;
-            top: 0;
-            height: calc(100vh - 48px);
-            padding-top: .5rem;
-            overflow-x: hidden;
-            overflow-y: auto;
-        }
-        
-        .navbar-brand {
-            padding-top: .75rem;
-            padding-bottom: .75rem;
-            font-size: 1rem;
-            background-color: rgba(0, 0, 0, .25);
-            box-shadow: inset -1px 0 0 rgba(0, 0, 0, .25);
-        }
-        
-        .navbar .navbar-toggler {
-            top: .25rem;
-            right: 1rem;
-        }
-        
-        .navbar .form-control {
-            padding: .75rem 1rem;
-            border-width: 0;
-            border-radius: 0;
-        }
-        
-        .border-left-primary {
-            border-left: 0.25rem solid #4e73df !important;
-        }
-        
-        .border-left-success {
-            border-left: 0.25rem solid #1cc88a !important;
-        }
-        
-        .border-left-info {
-            border-left: 0.25rem solid #36b9cc !important;
-        }
-        
-        .border-left-warning {
-            border-left: 0.25rem solid #f6c23e !important;
-        }
-        
-        .border-left-danger {
-            border-left: 0.25rem solid #e74a3b !important;
-        }
-        
-        .text-gray-300 {
-            color: #dddfeb !important;
-        }
-        
-        .text-gray-800 {
-            color: #5a5c69 !important;
-        }
-        
-        .shadow {
-            box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15) !important;
-        }
-        
-        .card {
-            border: none;
-        }
-        
-        .nav-link {
-            color: #858796;
-        }
-        
-        .nav-link:hover {
-            color: #5a5c69;
-        }
-        
-        .nav-link.active {
-            color: #4e73df;
-            font-weight: 700;
-        }
-        
-        .btn-block {
-            width: 100%;
-        }
-        
-        .table th {
-            border-top: none;
-            font-weight: 600;
-            color: #5a5c69;
-        }
-        
-        .badge {
-            font-size: 0.75em;
-        }
-        
-        .alert {
-            border: none;
-            border-radius: 0.35rem;
-        }
-        
-        .form-control:focus {
-            border-color: #4e73df;
-            box-shadow: 0 0 0 0.2rem rgba(78, 115, 223, 0.25);
-        }
-        
-        .btn-primary {
-            background-color: #4e73df;
-            border-color: #4e73df;
-        }
-        
-        .btn-primary:hover {
-            background-color: #2e59d9;
-            border-color: #2653d4;
-        }
-        
-        .text-primary {
-            color: #4e73df !important;
-        }
-        
-        .bg-primary {
-            background-color: #4e73df !important;
-        }
-    </style>
 </head>
-<body>
-    <nav class="navbar navbar-dark sticky-top bg-dark flex-md-nowrap p-0 shadow">
-        <a class="navbar-brand col-md-3 col-lg-2 me-0 px-3" href="dashboard.php">
-            <?php echo SITE_NAME; ?> Admin
-        </a>
-        <button class="navbar-toggler position-absolute d-md-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="navbar-nav">
-            <div class="nav-item text-nowrap">
-                <a class="nav-link px-3" href="../logout.php">Sign out</a>
+<body class="admin-app">
+    <nav class="navbar navbar-expand-lg admin-navbar">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-link text-white p-0 fs-4 d-lg-none" id="sidebarToggle" aria-label="Toggle navigation">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <a class="navbar-brand" href="dashboard.php">
+                    <span class="brand-initial">GM</span>
+                    <span><?php echo SITE_NAME; ?> God Mode</span>
+                </a>
+            </div>
+
+            <div class="d-flex align-items-center gap-3 ms-auto">
+                <form class="d-none d-md-flex" action="sites.php" method="get" role="search">
+                    <div class="input-group">
+                        <span class="input-group-text bg-transparent border-0 text-white-50"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Quick search..." name="search" value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>">
+                    </div>
+                </form>
+
+                <button class="theme-toggle" type="button" id="themeToggle" aria-label="Toggle theme">
+                    <i class="fas fa-moon"></i>
+                </button>
+
+                <div class="dropdown">
+                    <a class="d-flex align-items-center text-white text-decoration-none dropdown-toggle" href="#" role="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="me-2 text-end d-none d-sm-block">
+                            <small class="d-block text-white-50">Administrator</small>
+                            <span class="fw-semibold"><?php echo htmlspecialchars($_SESSION['username'] ?? 'Admin'); ?></span>
+                        </div>
+                        <span class="avatar bg-white bg-opacity-25 rounded-circle d-inline-flex justify-content-center align-items-center" style="width: 40px; height: 40px;">
+                            <i class="fas fa-user-shield"></i>
+                        </span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                        <li><h6 class="dropdown-header">Signed in as <strong><?php echo htmlspecialchars($_SESSION['username'] ?? 'Admin'); ?></strong></h6></li>
+                        <li><a class="dropdown-item" href="../profile.php"><i class="fas fa-id-badge me-2 text-primary"></i>Profile</a></li>
+                        <li><a class="dropdown-item" href="settings.php"><i class="fas fa-sliders me-2 text-primary"></i>Settings</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="../logout.php"><i class="fas fa-sign-out-alt me-2"></i>Sign out</a></li>
+                    </ul>
+                </div>
             </div>
         </div>
     </nav>
+    <div class="admin-layout">
