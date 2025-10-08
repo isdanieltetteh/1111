@@ -131,12 +131,12 @@ $hasCampaignTypeColumn = ad_table_has_column($db, 'user_advertisements', 'campai
 
 if ($hasCampaignTypeColumn) {
     $targetedFinancialExpression = "CASE WHEN ua.campaign_type IN ('cpc','cpm') THEN ua.total_spent ELSE (ua.cost_paid + ua.premium_cost) END";
-    $globalFinancialExpression = "CASE WHEN campaign_type IN ('cpc','cpm') THEN total_spent ELSE (cost_paid + premium_cost) END";
+    $campaignFinancialExpression = "CASE WHEN campaign_type IN ('cpc','cpm') THEN total_spent ELSE (cost_paid + premium_cost) END";
     $performanceCampaignsSelect = "SUM(CASE WHEN campaign_type IN ('cpc','cpm') THEN 1 ELSE 0 END) AS performance_campaigns";
     $remainingBudgetSelect = "COALESCE(SUM(CASE WHEN campaign_type IN ('cpc','cpm') THEN budget_remaining ELSE 0 END), 0) AS remaining_budget";
 } else {
     $targetedFinancialExpression = '(ua.cost_paid + ua.premium_cost)';
-    $globalFinancialExpression = '(cost_paid + premium_cost)';
+    $campaignFinancialExpression = '(cost_paid + premium_cost)';
     $performanceCampaignsSelect = '0 AS performance_campaigns';
     $remainingBudgetSelect = '0 AS remaining_budget';
 
@@ -166,7 +166,7 @@ $generalMetricsStmt = $db->query("SELECT
         COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active_campaigns,
         COALESCE(SUM(impression_count), 0) AS impressions,
         COALESCE(SUM(click_count), 0) AS clicks,
-        COALESCE(SUM($targetedFinancialExpression), 0) AS spend
+        COALESCE(SUM($campaignFinancialExpression), 0) AS spend
     FROM user_advertisements
     WHERE placement_type = 'general'
     GROUP BY ad_type, COALESCE(target_width, 0), COALESCE(target_height, 0)");
@@ -237,7 +237,7 @@ $campaignStatsSelects = [
     $performanceCampaignsSelect,
     'COALESCE(SUM(impression_count), 0) AS impressions',
     'COALESCE(SUM(click_count), 0) AS clicks',
-    "COALESCE(SUM($globalFinancialExpression), 0) AS spend",
+    "COALESCE(SUM($campaignFinancialExpression), 0) AS spend",
     $remainingBudgetSelect,
 ];
 
