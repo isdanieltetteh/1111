@@ -21,12 +21,112 @@ $error_message = '';
 
 // Handle ad purchase
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
-    $ad_type = $_POST['ad_type'];
-    $duration_days = intval($_POST['duration_days']);
-    $visibility_level = $_POST['visibility_level'];
-    $title = trim($_POST['title']);
-    $target_url = trim($_POST['target_url']);
-    $ad_space_id = isset($_POST['ad_space_id']) && !empty($_POST['ad_space_id']) ? $_POST['ad_space_id'] : null; // Get the space_id string instead of the integer id
+    $ad_type = $_POST['ad_type'] ?? '';
+    $duration_days = intval($_POST['duration_days'] ?? 0);
+    $visibility_level = $_POST['visibility_level'] ?? 'standard';
+    $campaign_type = $_POST['campaign_type'] ?? 'standard';
+    $placement_type = $_POST['placement_type'] ?? 'targeted';
+    $title = trim($_POST['title'] ?? '');
+    $target_url = trim($_POST['target_url'] ?? '');
+    $ad_space_id = isset($_POST['ad_space_id']) && $_POST['ad_space_id'] !== '' ? intval($_POST['ad_space_id']) : null;
+    $budget_total = isset($_POST['budget_total']) ? floatval($_POST['budget_total']) : 0;
+    $cpc_rate = isset($_POST['cpc_rate']) ? floatval($_POST['cpc_rate']) : 0;
+    $cpm_rate = isset($_POST['cpm_rate']) ? floatval($_POST['cpm_rate']) : 0;
+    $target_width = isset($_POST['target_width']) && $_POST['target_width'] !== '' ? intval($_POST['target_width']) : null;
+    $target_height = isset($_POST['target_height']) && $_POST['target_height'] !== '' ? intval($_POST['target_height']) : null;
+
+    $allowed_types = ['banner', 'text'];
+    if (!in_array($ad_type, $allowed_types, true)) {
+        $error_message = 'Invalid ad type selected.';
+    }
+
+    if (!in_array($visibility_level, ['standard', 'premium'], true)) {
+        $visibility_level = 'standard';
+    }
+
+    if (!in_array($campaign_type, ['standard', 'cpc', 'cpm'], true)) {
+        $campaign_type = 'standard';
+    }
+
+    if (!in_array($placement_type, ['targeted', 'general'], true)) {
+        $placement_type = 'targeted';
+    }
+
+    if (empty($title) || empty($target_url)) {
+        $error_message = 'Please provide a campaign title and target URL.';
+    }
+
+    if ($campaign_type === 'standard' && $duration_days <= 0) {
+        $error_message = 'Please select a campaign duration.';
+    }
+
+    $space_multiplier = 1.0;
+    $target_space_id = null;
+    $space_width = null;
+    $space_height = null;
+    $is_cross_pool = 0;
+
+    if ($placement_type === 'targeted') {
+        if (!$ad_space_id) {
+            $error_message = 'Please select an ad space for targeted placement.';
+        } else {
+            $space_query = "SELECT * FROM ad_spaces WHERE id = :space_id AND is_enabled = 1";
+            $space_stmt = $db->prepare($space_query);
+            $space_stmt->bindParam(':space_id', $ad_space_id, PDO::PARAM_INT);
+            $space_stmt->execute();
+            $space = $space_stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($space) {
+                $space_multiplier = (float) ($space['base_price_multiplier'] ?? 1.0);
+                $target_space_id = $space['space_id'];
+                $space_width = $space['width'];
+                $space_height = $space['height'];
+                $target_width = $space['width'];
+                $target_height = $space['height'];
+            } else {
+                $error_message = 'Selected ad space is not available.';
+            }
+        }
+    } else {
+        $is_cross_pool = 1;
+
+        if ($target_width === null || $target_height === null) {
+            $error_message = 'Please choose preferred dimensions for a general placement.';
+        } else {
+            if ($target_width === 0 && $target_height === 0) {
+                $dimension_query = "SELECT MAX(base_price_multiplier) as multiplier
+                                    FROM ad_spaces
+                                    WHERE is_enabled = 1
+                                      AND width IS NULL
+                                      AND height IS NULL
+                                      AND (ad_type = :ad_type OR ad_type = 'both')";
+                $dimension_stmt = $db->prepare($dimension_query);
+            } else {
+                $dimension_query = "SELECT MAX(base_price_multiplier) as multiplier
+                                    FROM ad_spaces
+                                    WHERE is_enabled = 1
+                                      AND width = :width
+                                      AND height = :height
+                                      AND (ad_type = :ad_type OR ad_type = 'both')";
+                $dimension_stmt = $db->prepare($dimension_query);
+                $dimension_stmt->bindParam(':width', $target_width, PDO::PARAM_INT);
+                $dimension_stmt->bindParam(':height', $target_height, PDO::PARAM_INT);
+            }
+
+            $dimension_stmt->bindParam(':ad_type', $ad_type);
+            $dimension_stmt->execute();
+            $dimension = $dimension_stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($dimension && $dimension['multiplier']) {
+                $space_multiplier = (float) $dimension['multiplier'];
+            } else {
+                $error_message = 'No available ad spaces match the selected dimensions.';
+            }
+
+            $space_width = $target_width ?: null;
+            $space_height = $target_height ?: null;
+        }
+    }
 
     // Type-specific fields
     $banner_image = null;
@@ -34,150 +134,210 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
     $text_title = null;
     $text_description = null;
 
-    if ($ad_type === 'banner') {
-        $banner_alt_text = trim($_POST['banner_alt_text']);
+    if (empty($error_message)) {
+        if ($ad_type === 'banner') {
+            $banner_alt_text = trim($_POST['banner_alt_text'] ?? '');
 
-        // Handle image upload
-        if (isset($_FILES['banner_image']) && $_FILES['banner_image']['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = 'uploads/ads/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
+            if (isset($_FILES['banner_image']) && $_FILES['banner_image']['error'] === UPLOAD_ERR_OK) {
+                $upload_dir = 'uploads/ads/';
+                if (!is_dir($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
 
-            $file_extension = strtolower(pathinfo($_FILES['banner_image']['name'], PATHINFO_EXTENSION));
-            $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
+                $file_extension = strtolower(pathinfo($_FILES['banner_image']['name'], PATHINFO_EXTENSION));
+                $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif'];
 
-            if (in_array($file_extension, $allowed_extensions)) {
-                $file_name = uniqid('ad_') . '.' . $file_extension;
-                $file_path = $upload_dir . $file_name;
+                if (in_array($file_extension, $allowed_extensions, true)) {
+                    $file_name = uniqid('ad_') . '.' . $file_extension;
+                    $file_path = $upload_dir . $file_name;
 
-                if (move_uploaded_file($_FILES['banner_image']['tmp_name'], $file_path)) {
-                    $banner_image = $file_path;
+                    $image_size = @getimagesize($_FILES['banner_image']['tmp_name']);
+                    if ($image_size) {
+                        $actual_width = $image_size[0];
+                        $actual_height = $image_size[1];
+
+                        if ($space_width && $actual_width > $space_width) {
+                            $error_message = 'Uploaded banner exceeds the selected width.';
+                        }
+
+                        if ($space_height && $actual_height > $space_height) {
+                            $error_message = 'Uploaded banner exceeds the selected height.';
+                        }
+                    }
+
+                    if (empty($error_message) && move_uploaded_file($_FILES['banner_image']['tmp_name'], $file_path)) {
+                        $banner_image = $file_path;
+                    } elseif (empty($error_message)) {
+                        $error_message = 'Failed to upload banner image.';
+                    }
                 } else {
-                    $error_message = 'Failed to upload banner image.';
+                    $error_message = 'Invalid image format. Please use JPG, PNG, or GIF.';
                 }
             } else {
-                $error_message = 'Invalid image format. Please use JPG, PNG, or GIF.';
+                $error_message = 'Please upload a banner image.';
             }
         } else {
-            $error_message = 'Please upload a banner image.';
+            $text_title = trim($_POST['text_title'] ?? '');
+            $text_description = trim($_POST['text_description'] ?? '');
+
+            if ($text_title === '' || $text_description === '') {
+                $error_message = 'Please provide both a headline and description for your text ad.';
+            }
         }
-    } else {
-        $text_title = trim($_POST['text_title']);
-        $text_description = trim($_POST['text_description']);
+    }
+
+    if ($campaign_type !== 'standard') {
+        $duration_days = max(0, $duration_days);
     }
 
     if (empty($error_message)) {
-        $pricing_query = "SELECT * FROM ad_pricing WHERE ad_type = :ad_type AND duration_days = :duration_days";
-        $pricing_stmt = $db->prepare($pricing_query);
-        $pricing_stmt->bindParam(':ad_type', $ad_type);
-        $pricing_stmt->bindParam(':duration_days', $duration_days);
-        $pricing_stmt->execute();
-        $pricing = $pricing_stmt->fetch(PDO::FETCH_ASSOC);
+        $base_cost = 0;
+        $premium_cost = 0;
+        $total_cost = 0;
+        $budget_remaining = 0;
 
-        $space_multiplier = 1.0;
-        $target_space_id = null; // Initialize target_space_id string
-        if ($ad_space_id) {
-            $space_query = "SELECT space_id, base_price_multiplier FROM ad_spaces WHERE id = :space_id AND is_enabled = 1";
-            $space_stmt = $db->prepare($space_query);
-            $space_stmt->bindParam(':space_id', $ad_space_id);
-            $space_stmt->execute();
-            $space = $space_stmt->fetch(PDO::FETCH_ASSOC);
-            if ($space) {
-                $space_multiplier = $space['base_price_multiplier'];
-                $target_space_id = $space['space_id']; // Store the space_id string, not the integer id
-            }
-        }
+        if ($campaign_type === 'standard') {
+            $pricing_query = "SELECT * FROM ad_pricing WHERE ad_type = :ad_type AND duration_days = :duration_days";
+            $pricing_stmt = $db->prepare($pricing_query);
+            $pricing_stmt->bindParam(':ad_type', $ad_type);
+            $pricing_stmt->bindParam(':duration_days', $duration_days);
+            $pricing_stmt->execute();
+            $pricing = $pricing_stmt->fetch(PDO::FETCH_ASSOC);
 
-        if ($pricing) {
-            $base_cost = $pricing['base_price'] * $space_multiplier;
-            $premium_cost = 0;
-
-            if ($visibility_level === 'premium') {
-                $premium_cost = $base_cost * ($pricing['premium_multiplier'] - 1);
-            }
-
-            $total_cost = $base_cost + $premium_cost;
-
-            // Check user balance
-            if ($user['credits'] >= $total_cost) {
-                try {
-                    $db->beginTransaction();
-
-                    // Deduct credits
-                    $deduct_query = "UPDATE users SET credits = credits - :cost WHERE id = :user_id";
-                    $deduct_stmt = $db->prepare($deduct_query);
-                    $deduct_stmt->bindParam(':cost', $total_cost);
-                    $deduct_stmt->bindParam(':user_id', $user_id);
-                    $deduct_stmt->execute();
-
-                    // Create advertisement
-                    $insert_ad = "INSERT INTO user_advertisements
-                                 (user_id, title, ad_type, visibility_level, duration_days,
-                                  banner_image, banner_alt_text, text_title, text_description,
-                                  target_url, cost_paid, premium_cost, target_space_id, status)
-                                 VALUES
-                                 (:user_id, :title, :ad_type, :visibility_level, :duration_days,
-                                  :banner_image, :banner_alt_text, :text_title, :text_description,
-                                  :target_url, :cost_paid, :premium_cost, :target_space_id, 'pending')";
-                    $insert_stmt = $db->prepare($insert_ad);
-                    $insert_stmt->bindParam(':user_id', $user_id);
-                    $insert_stmt->bindParam(':title', $title);
-                    $insert_stmt->bindParam(':ad_type', $ad_type);
-                    $insert_stmt->bindParam(':visibility_level', $visibility_level);
-                    $insert_stmt->bindParam(':duration_days', $duration_days);
-                    $insert_stmt->bindParam(':banner_image', $banner_image);
-                    $insert_stmt->bindParam(':banner_alt_text', $banner_alt_text);
-                    $insert_stmt->bindParam(':text_title', $text_title);
-                    $insert_stmt->bindParam(':text_description', $text_description);
-                    $insert_stmt->bindParam(':target_url', $target_url);
-                    $insert_stmt->bindParam(':cost_paid', $base_cost);
-                    $insert_stmt->bindParam(':premium_cost', $premium_cost);
-                    $insert_stmt->bindParam(':target_space_id', $target_space_id);
-                    $insert_stmt->execute();
-
-                    $ad_id = $db->lastInsertId();
-
-                    // Log transaction
-                    $log_transaction = "INSERT INTO ad_transactions (ad_id, user_id, amount, transaction_type, description)
-                                       VALUES (:ad_id, :user_id, :amount, 'purchase', :description)";
-                    $log_stmt = $db->prepare($log_transaction);
-                    $log_stmt->bindParam(':ad_id', $ad_id);
-                    $log_stmt->bindParam(':user_id', $user_id);
-                    $log_stmt->bindParam(':amount', $total_cost);
-                    $description = "Ad purchase: {$ad_type} ad for {$duration_days} days" . ($visibility_level === 'premium' ? ' (Premium)' : '');
-                    $log_stmt->bindParam(':description', $description);
-                    $log_stmt->execute();
-
-                    // Log credit transaction
-                    $credit_log = "INSERT INTO credit_transactions (user_id, amount, type, description, status)
-                                  VALUES (:user_id, :amount, 'spent', :description, 'completed')";
-                    $credit_stmt = $db->prepare($credit_log);
-                    $negative_amount = -$total_cost;
-                    $credit_stmt->bindParam(':user_id', $user_id);
-                    $credit_stmt->bindParam(':amount', $negative_amount);
-                    $credit_stmt->bindParam(':description', $description);
-                    $credit_stmt->execute();
-
-                    $db->commit();
-
-                    // Update user credits in session
-                    $user['credits'] -= $total_cost;
-
-                    $success_message = "Advertisement purchased successfully! Your ad is pending admin approval.";
-
-                    // Redirect to my ads page
-                    header('Location: my-ads.php?success=1');
-                    exit();
-                } catch (Exception $e) {
-                    $db->rollback();
-                    $error_message = 'Error processing purchase: ' . $e->getMessage();
-                }
+            if (!$pricing) {
+                $error_message = 'Invalid pricing configuration.';
             } else {
-                $error_message = "Insufficient credits. You need $" . number_format($total_cost, 2) . " but have $" . number_format($user['credits'], 2);
+                $base_cost = $pricing['base_price'] * $space_multiplier;
+                if ($visibility_level === 'premium') {
+                    $premium_cost = $base_cost * ($pricing['premium_multiplier'] - 1);
+                }
+                $total_cost = $base_cost + $premium_cost;
+            }
+        } elseif ($campaign_type === 'cpc') {
+            if ($budget_total <= 0 || $cpc_rate <= 0) {
+                $error_message = 'Provide a valid budget and CPC rate.';
+            } elseif ($budget_total < $cpc_rate) {
+                $error_message = 'CPC budget must exceed the cost per click.';
+            } else {
+                $base_cost = $budget_total;
+                $total_cost = $budget_total;
+                $budget_remaining = $budget_total;
+            }
+            $premium_cost = 0;
+        } else { // CPM
+            if ($budget_total <= 0 || $cpm_rate <= 0) {
+                $error_message = 'Provide a valid budget and CPM rate.';
+            } else {
+                $base_cost = $budget_total;
+                $total_cost = $budget_total;
+                $budget_remaining = $budget_total;
+            }
+            $premium_cost = 0;
+        }
+    }
+
+    if (empty($error_message)) {
+        if ($user['credits'] >= $total_cost) {
+            try {
+                $db->beginTransaction();
+
+                $deduct_query = "UPDATE users SET credits = credits - :cost WHERE id = :user_id";
+                $deduct_stmt = $db->prepare($deduct_query);
+                $deduct_stmt->bindParam(':cost', $total_cost);
+                $deduct_stmt->bindParam(':user_id', $user_id);
+                $deduct_stmt->execute();
+
+                $insert_ad = "INSERT INTO user_advertisements
+                                (user_id, title, ad_type, visibility_level, duration_days, campaign_type, placement_type,
+                                 banner_image, banner_alt_text, text_title, text_description,
+                                 target_url, cost_paid, premium_cost, target_space_id, target_width, target_height,
+                                 budget_total, budget_remaining, cpc_rate, cpm_rate, is_cross_pool, status)
+                              VALUES
+                                (:user_id, :title, :ad_type, :visibility_level, :duration_days, :campaign_type, :placement_type,
+                                 :banner_image, :banner_alt_text, :text_title, :text_description,
+                                 :target_url, :cost_paid, :premium_cost, :target_space_id, :target_width, :target_height,
+                                 :budget_total, :budget_remaining, :cpc_rate, :cpm_rate, :is_cross_pool, 'pending')";
+
+                $insert_stmt = $db->prepare($insert_ad);
+                $insert_stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+                $insert_stmt->bindParam(':title', $title);
+                $insert_stmt->bindParam(':ad_type', $ad_type);
+                $insert_stmt->bindParam(':visibility_level', $visibility_level);
+                $insert_stmt->bindParam(':duration_days', $duration_days, PDO::PARAM_INT);
+                $insert_stmt->bindParam(':campaign_type', $campaign_type);
+                $insert_stmt->bindParam(':placement_type', $placement_type);
+                $insert_stmt->bindParam(':banner_image', $banner_image);
+                $insert_stmt->bindParam(':banner_alt_text', $banner_alt_text);
+                $insert_stmt->bindParam(':text_title', $text_title);
+                $insert_stmt->bindParam(':text_description', $text_description);
+                $insert_stmt->bindParam(':target_url', $target_url);
+                $insert_stmt->bindParam(':cost_paid', $base_cost);
+                $insert_stmt->bindParam(':premium_cost', $premium_cost);
+                if ($target_space_id) {
+                    $insert_stmt->bindParam(':target_space_id', $target_space_id);
+                } else {
+                    $insert_stmt->bindValue(':target_space_id', null, PDO::PARAM_NULL);
+                }
+                if ($target_width !== null) {
+                    $insert_stmt->bindParam(':target_width', $target_width, PDO::PARAM_INT);
+                } else {
+                    $insert_stmt->bindValue(':target_width', null, PDO::PARAM_NULL);
+                }
+                if ($target_height !== null) {
+                    $insert_stmt->bindParam(':target_height', $target_height, PDO::PARAM_INT);
+                } else {
+                    $insert_stmt->bindValue(':target_height', null, PDO::PARAM_NULL);
+                }
+                $insert_stmt->bindParam(':budget_total', $budget_total);
+                $insert_stmt->bindParam(':budget_remaining', $budget_remaining);
+                $insert_stmt->bindParam(':cpc_rate', $cpc_rate);
+                $insert_stmt->bindParam(':cpm_rate', $cpm_rate);
+                $insert_stmt->bindParam(':is_cross_pool', $is_cross_pool, PDO::PARAM_INT);
+                $insert_stmt->execute();
+
+                $ad_id = $db->lastInsertId();
+
+                $log_transaction = "INSERT INTO ad_transactions (ad_id, user_id, amount, transaction_type, description)
+                                     VALUES (:ad_id, :user_id, :amount, 'purchase', :description)";
+                $log_stmt = $db->prepare($log_transaction);
+                $log_stmt->bindParam(':ad_id', $ad_id, PDO::PARAM_INT);
+                $log_stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+                $log_stmt->bindParam(':amount', $total_cost);
+
+                if ($campaign_type === 'standard') {
+                    $description = "Ad purchase: {$ad_type} ad for {$duration_days} days" . ($visibility_level === 'premium' ? ' (Premium)' : '');
+                } elseif ($campaign_type === 'cpc') {
+                    $description = "CPC budget for {$ad_type} campaign";
+                } else {
+                    $description = "CPM budget for {$ad_type} campaign";
+                }
+
+                $log_stmt->bindParam(':description', $description);
+                $log_stmt->execute();
+
+                $credit_log = "INSERT INTO credit_transactions (user_id, amount, type, description, status)
+                                VALUES (:user_id, :amount, 'spent', :description, 'completed')";
+                $credit_stmt = $db->prepare($credit_log);
+                $negative_amount = -$total_cost;
+                $credit_stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+                $credit_stmt->bindParam(':amount', $negative_amount);
+                $credit_stmt->bindParam(':description', $description);
+                $credit_stmt->execute();
+
+                $db->commit();
+
+                $user['credits'] -= $total_cost;
+
+                $success_message = "Advertisement purchased successfully! Your ad is pending admin approval.";
+
+                header('Location: my-ads.php?success=1');
+                exit();
+            } catch (Exception $e) {
+                $db->rollback();
+                $error_message = 'Error processing purchase: ' . $e->getMessage();
             }
         } else {
-            $error_message = 'Invalid pricing configuration.';
+            $error_message = "Insufficient credits. You need $" . number_format($total_cost, 2) . " but have $" . number_format($user['credits'], 2);
         }
     }
 }
@@ -196,6 +356,41 @@ $spaces_query = "SELECT * FROM ad_spaces WHERE is_enabled = 1 ORDER BY page_loca
 $spaces_stmt = $db->prepare($spaces_query);
 $spaces_stmt->execute();
 $ad_spaces = $spaces_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$general_dimension_map = [];
+foreach ($ad_spaces as $space) {
+    $types = $space['ad_type'] === 'both' ? ['banner', 'text'] : [$space['ad_type']];
+    $width = isset($space['width']) ? (int) $space['width'] : 0;
+    $height = isset($space['height']) ? (int) $space['height'] : 0;
+    $multiplier = isset($space['base_price_multiplier']) ? (float) $space['base_price_multiplier'] : 1.0;
+
+    foreach ($types as $type) {
+        $key = $type . '_' . $width . 'x' . $height;
+        if (!isset($general_dimension_map[$key])) {
+            $label = ($width && $height) ? $width . 'x' . $height . 'px' : 'Responsive Flex';
+            $general_dimension_map[$key] = [
+                'ad_type' => $type,
+                'width' => $width,
+                'height' => $height,
+                'multiplier' => $multiplier,
+                'label' => $label
+            ];
+        } else {
+            $general_dimension_map[$key]['multiplier'] = max($general_dimension_map[$key]['multiplier'], $multiplier);
+        }
+    }
+}
+
+$general_dimensions = array_values($general_dimension_map);
+usort($general_dimensions, function ($a, $b) {
+    if ($a['ad_type'] === $b['ad_type']) {
+        if ($a['width'] === $b['width']) {
+            return $b['height'] <=> $a['height'];
+        }
+        return $b['width'] <=> $a['width'];
+    }
+    return strcmp($a['ad_type'], $b['ad_type']);
+});
 
 $page_title = 'Buy Ads - ' . SITE_NAME;
 $page_description = 'Launch banner or text ad campaigns to reach engaged faucet users.';
@@ -501,6 +696,8 @@ include 'includes/header.php';
                         <input type="hidden" name="ad_type" id="selectedAdType">
                         <input type="hidden" name="duration_days" id="selectedDuration">
                         <input type="hidden" name="ad_space_id" id="selectedAdSpaceId">
+                        <input type="hidden" name="target_width" id="targetWidthInput">
+                        <input type="hidden" name="target_height" id="targetHeightInput">
 
                         <div class="glass-card p-4 p-lg-5" data-aos="fade-up">
                             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
@@ -574,15 +771,43 @@ include 'includes/header.php';
                                 <h2 class="h5 text-white mb-0">Provide Campaign Details</h2>
                             </div>
                             <div class="row g-4">
-                                <div class="col-12">
+                                <div class="col-md-6">
+                                    <label class="form-label">Campaign Type *</label>
+                                    <select name="campaign_type" class="form-select" id="campaignTypeSelect">
+                                        <option value="standard" selected>Standard (Duration Based)</option>
+                                        <option value="cpc">CPC - Pay Per Click</option>
+                                        <option value="cpm">CPM - Per 1,000 Impressions</option>
+                                    </select>
+                                    <span class="form-help">Pick how you want to fund and measure performance.</span>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Placement Strategy *</label>
+                                    <div class="d-flex gap-3" id="placementToggle">
+                                        <div class="flex-fill">
+                                            <input type="radio" class="btn-check" name="placement_type" id="placementTargeted" value="targeted" checked>
+                                            <label class="btn btn-outline-light w-100" for="placementTargeted">
+                                                <i class="fas fa-bullseye me-1"></i> Target Specific Spot
+                                            </label>
+                                        </div>
+                                        <div class="flex-fill">
+                                            <input type="radio" class="btn-check" name="placement_type" id="placementGeneral" value="general">
+                                            <label class="btn btn-outline-light w-100" for="placementGeneral">
+                                                <i class="fas fa-layer-group me-1"></i> General Rotation
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <span class="form-help">Choose a single ad space or rotate across every matching placement.</span>
+                                </div>
+                                <div class="col-12" id="targetedPlacementFields">
                                     <label class="form-label">Ad Space Location *</label>
-                                    <select name="ad_space_id" class="form-select" required id="adSpaceSelect">
+                                    <select name="ad_space_id" class="form-select" id="adSpaceSelect">
                                         <option value="">Select ad space...</option>
                                         <?php foreach ($ad_spaces as $space): ?>
                                             <option value="<?php echo $space['id']; ?>"
                                                     data-multiplier="<?php echo $space['base_price_multiplier']; ?>"
                                                     data-width="<?php echo $space['width']; ?>"
-                                                    data-height="<?php echo $space['height']; ?>">
+                                                    data-height="<?php echo $space['height']; ?>"
+                                                    data-ad-type="<?php echo $space['ad_type']; ?>">
                                                 <?php echo htmlspecialchars($space['space_name']); ?> (<?php echo htmlspecialchars($space['page_location']); ?>)
                                                 <?php if ($space['width'] && $space['height']): ?>- <?php echo $space['width']; ?>x<?php echo $space['height']; ?><?php endif; ?>
                                                 <?php if ($space['base_price_multiplier'] != 1.0): ?>- <?php echo $space['base_price_multiplier']; ?>x price<?php endif; ?>
@@ -591,7 +816,23 @@ include 'includes/header.php';
                                     </select>
                                     <span class="form-help">Pick the exact slot where your campaign will appear.</span>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-12 d-none" id="generalPlacementFields">
+                                    <label class="form-label">Preferred Dimensions *</label>
+                                    <select class="form-select" id="generalDimensionSelect" disabled>
+                                        <option value="">Select dimensions...</option>
+                                        <?php foreach ($general_dimensions ?? [] as $dimension): ?>
+                                            <option value="<?php echo $dimension['width']; ?>x<?php echo $dimension['height']; ?>"
+                                                    data-width="<?php echo $dimension['width']; ?>"
+                                                    data-height="<?php echo $dimension['height']; ?>"
+                                                    data-multiplier="<?php echo $dimension['multiplier']; ?>"
+                                                    data-ad-type="<?php echo $dimension['ad_type']; ?>">
+                                                <?php echo strtoupper($dimension['ad_type']); ?> — <?php echo $dimension['label']; ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <span class="form-help">Your creative will appear in every ad slot that matches these dimensions.</span>
+                                </div>
+                                <div class="col-12">
                                     <label class="form-label">Ad Title *</label>
                                     <input type="text" name="title" class="form-control" required maxlength="255">
                                     <span class="form-help">Internal reference name for your records.</span>
@@ -601,12 +842,36 @@ include 'includes/header.php';
                                     <input type="url" name="target_url" class="form-control" required placeholder="https://example.com">
                                     <span class="form-help">Visitors will be redirected to this destination.</span>
                                 </div>
+                                <div class="col-md-6 d-none" id="budgetField">
+                                    <label class="form-label">Campaign Budget *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" step="0.01" min="0" class="form-control" name="budget_total" id="budgetInput" placeholder="250.00">
+                                    </div>
+                                    <span class="form-help">Total credits reserved for this campaign.</span>
+                                </div>
+                                <div class="col-md-6 d-none" id="cpcRateField">
+                                    <label class="form-label">CPC Rate *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" step="0.01" min="0" class="form-control" name="cpc_rate" id="cpcRateInput" placeholder="0.35">
+                                    </div>
+                                    <span class="form-help">Amount deducted for every click you receive.</span>
+                                </div>
+                                <div class="col-md-6 d-none" id="cpmRateField">
+                                    <label class="form-label">CPM Rate *</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" step="0.01" min="0" class="form-control" name="cpm_rate" id="cpmRateInput" placeholder="4.50">
+                                    </div>
+                                    <span class="form-help">Cost per thousand impressions (CPM).</span>
+                                </div>
                                 <div class="col-12" id="bannerFields" style="display: none;">
                                     <div class="row g-4">
                                         <div class="col-md-6">
                                             <label class="form-label">Banner Image *</label>
                                             <input type="file" name="banner_image" class="form-control" accept="image/*" id="bannerImageInput">
-                                            <span class="form-help" id="bannerSizeHelp">Recommended size: 728x90px or 468x60px. Max 2MB.</span>
+                                            <span class="form-help" id="bannerSizeHelp">Recommended size updates when you choose a placement. Max 2MB.</span>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Alt Text *</label>
@@ -658,12 +923,20 @@ include 'includes/header.php';
                                 <h2 class="h5 text-white mb-0">Estimated Investment</h2>
                             </div>
                             <div class="cost-row">
-                                <span>Base Price</span>
+                                <span id="basePriceLabel">Base Price</span>
                                 <span id="basePrice">$0.00</span>
                             </div>
                             <div class="cost-row" id="premiumCostRow" style="display: none;">
                                 <span>Premium Upgrade</span>
                                 <span id="premiumCost">$0.00</span>
+                            </div>
+                            <div class="cost-row" id="billingModelRow" style="display: none;">
+                                <span>Billing Model</span>
+                                <span id="billingModelValue">CPC</span>
+                            </div>
+                            <div class="cost-row" id="rateRow" style="display: none;">
+                                <span id="rateLabel">Rate</span>
+                                <span id="rateValue">$0.00</span>
                             </div>
                             <div class="cost-row">
                                 <span>Ad Space Multiplier</span>
@@ -736,23 +1009,54 @@ include 'includes/header.php';
 <script>
     const optionLabels = document.querySelectorAll('.pricing-option');
     const visibilityOptions = document.querySelectorAll('.visibility-option');
+    const adSpaceSelect = document.getElementById('adSpaceSelect');
+    const generalDimensionSelect = document.getElementById('generalDimensionSelect');
+    const placementRadios = document.querySelectorAll('input[name="placement_type"]');
+    const targetWidthInput = document.getElementById('targetWidthInput');
+    const targetHeightInput = document.getElementById('targetHeightInput');
+    const selectedAdSpaceHidden = document.getElementById('selectedAdSpaceId');
+    const campaignTypeSelect = document.getElementById('campaignTypeSelect');
+    const budgetField = document.getElementById('budgetField');
+    const cpcRateField = document.getElementById('cpcRateField');
+    const cpmRateField = document.getElementById('cpmRateField');
+    const budgetInput = document.getElementById('budgetInput');
+    const cpcRateInput = document.getElementById('cpcRateInput');
+    const cpmRateInput = document.getElementById('cpmRateInput');
+    const basePriceLabel = document.getElementById('basePriceLabel');
+    const premiumCostRow = document.getElementById('premiumCostRow');
+    const billingModelRow = document.getElementById('billingModelRow');
+    const billingModelValue = document.getElementById('billingModelValue');
+    const rateRow = document.getElementById('rateRow');
+    const rateLabel = document.getElementById('rateLabel');
+    const rateValue = document.getElementById('rateValue');
+    const costSummary = document.getElementById('costSummary');
+    const submitBtn = document.getElementById('submitBtn');
+    const bannerSizeHelp = document.getElementById('bannerSizeHelp');
+    const bannerPreviewImage = document.getElementById('bannerPreviewImage');
+    const bannerPreviewPlaceholder = document.getElementById('bannerPreviewPlaceholder');
+    const bannerPreviewContainer = document.querySelector('#bannerAdPreview .preview-content');
+    const textPreviewContainer = document.querySelector('#textAdPreview .preview-content');
+    const targetedFields = document.getElementById('targetedPlacementFields');
+    const generalFields = document.getElementById('generalPlacementFields');
+
     let selectedType = null;
     let selectedDuration = null;
     let selectedPrice = 0;
     let selectedMultiplier = 1;
     let selectedVisibility = 'standard';
     let selectedAdSpaceId = null;
+    let selectedCampaignType = 'standard';
     let spaceMultiplier = 1.0;
 
     optionLabels.forEach(label => {
-        label.addEventListener('click', function() {
+        label.addEventListener('click', function () {
             optionLabels.forEach(opt => opt.classList.remove('selected'));
             this.classList.add('selected');
 
             selectedType = this.dataset.type;
-            selectedDuration = parseInt(this.dataset.duration, 10);
-            selectedPrice = parseFloat(this.dataset.price);
-            selectedMultiplier = parseFloat(this.dataset.multiplier);
+            selectedDuration = parseInt(this.dataset.duration, 10) || 0;
+            selectedPrice = parseFloat(this.dataset.price) || 0;
+            selectedMultiplier = parseFloat(this.dataset.multiplier) || 1;
 
             document.getElementById('selectedAdType').value = selectedType;
             document.getElementById('selectedDuration').value = selectedDuration;
@@ -764,20 +1068,20 @@ include 'includes/header.php';
                 document.getElementById('bannerFields').style.display = 'block';
                 document.getElementById('textFields').style.display = 'none';
                 document.getElementById('textAdPreview').style.display = 'none';
-                document.getElementById('bannerAdPreview').style.display = 'none';
             } else {
                 document.getElementById('bannerFields').style.display = 'none';
                 document.getElementById('textFields').style.display = 'block';
                 document.getElementById('textAdPreview').style.display = 'block';
-                document.getElementById('bannerAdPreview').style.display = 'none';
             }
 
+            syncGeneralOptions();
+            handlePlacementChange();
             updateCostSummary();
         });
     });
 
     visibilityOptions.forEach(option => {
-        option.addEventListener('click', function() {
+        option.addEventListener('click', function () {
             visibilityOptions.forEach(opt => opt.classList.remove('selected'));
             this.classList.add('selected');
             selectedVisibility = this.dataset.visibility;
@@ -785,40 +1089,65 @@ include 'includes/header.php';
         });
     });
 
-    const adSpaceSelect = document.getElementById('adSpaceSelect');
-    adSpaceSelect.addEventListener('change', function() {
-        selectedAdSpaceId = this.value;
-        const selectedOption = this.options[this.selectedIndex];
-        if (selectedOption && selectedOption.dataset && selectedOption.dataset.multiplier) {
-            spaceMultiplier = parseFloat(selectedOption.dataset.multiplier) || 1.0;
+    placementRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            handlePlacementChange();
+            updateCostSummary();
+        });
+    });
+
+    campaignTypeSelect.addEventListener('change', () => {
+        selectedCampaignType = campaignTypeSelect.value;
+        toggleBillingFields();
+        updateCostSummary();
+    });
+
+    [budgetInput, cpcRateInput, cpmRateInput].forEach(input => {
+        if (input) {
+            input.addEventListener('input', () => {
+                updateCostSummary();
+            });
+        }
+    });
+
+    adSpaceSelect.addEventListener('change', () => {
+        selectedAdSpaceId = adSpaceSelect.value || null;
+        selectedAdSpaceHidden.value = selectedAdSpaceId || '';
+        const option = adSpaceSelect.options[adSpaceSelect.selectedIndex];
+
+        if (option && option.dataset) {
+            spaceMultiplier = parseFloat(option.dataset.multiplier) || 1.0;
+            applyPlacementDimensions(option.dataset.width, option.dataset.height);
         } else {
             spaceMultiplier = 1.0;
-        }
-        document.getElementById('selectedAdSpaceId').value = selectedAdSpaceId;
-
-        if (selectedOption && selectedOption.dataset) {
-            const width = selectedOption.dataset.width;
-            const height = selectedOption.dataset.height;
-            if (width && height && selectedType === 'banner') {
-                document.getElementById('bannerSizeHelp').textContent = `Recommended size: ${width}x${height}px. Max 2MB.`;
-            } else {
-                document.getElementById('bannerSizeHelp').textContent = 'Recommended size: 728x90px or 468x60px. Max 2MB.';
-            }
+            applyPlacementDimensions(null, null);
         }
 
         updateCostSummary();
     });
 
+    generalDimensionSelect.addEventListener('change', () => {
+        const option = generalDimensionSelect.options[generalDimensionSelect.selectedIndex];
+        if (option && option.dataset) {
+            spaceMultiplier = parseFloat(option.dataset.multiplier) || 1.0;
+            applyPlacementDimensions(option.dataset.width, option.dataset.height);
+        } else {
+            spaceMultiplier = 1.0;
+            applyPlacementDimensions(null, null);
+        }
+        updateCostSummary();
+    });
+
     const bannerInput = document.getElementById('bannerImageInput');
     if (bannerInput) {
-        bannerInput.addEventListener('change', function(e) {
+        bannerInput.addEventListener('change', function (e) {
             const file = e.target.files[0];
             if (file && file.type.startsWith('image/')) {
                 const reader = new FileReader();
-                reader.onload = function(event) {
-                    document.getElementById('bannerPreviewImage').src = event.target.result;
-                    document.getElementById('bannerPreviewImage').style.display = 'block';
-                    document.getElementById('bannerPreviewPlaceholder').style.display = 'none';
+                reader.onload = event => {
+                    bannerPreviewImage.src = event.target.result;
+                    bannerPreviewImage.style.display = 'block';
+                    bannerPreviewPlaceholder.style.display = 'none';
                     document.getElementById('bannerAdPreview').style.display = 'block';
                 };
                 reader.readAsDataURL(file);
@@ -834,45 +1163,184 @@ include 'includes/header.php';
     const previewDescription = document.getElementById('previewDescription');
 
     if (textTitleInput) {
-        textTitleInput.addEventListener('input', function() {
+        textTitleInput.addEventListener('input', function () {
             previewTitle.textContent = this.value || 'Your Headline Here';
         });
     }
 
     if (textDescriptionInput) {
-        textDescriptionInput.addEventListener('input', function() {
+        textDescriptionInput.addEventListener('input', function () {
             previewDescription.textContent = this.value || 'Your description will appear here...';
         });
     }
 
+    function toggleBillingFields() {
+        selectedCampaignType = campaignTypeSelect.value;
+        const isStandard = selectedCampaignType === 'standard';
+
+        budgetField.classList.toggle('d-none', isStandard);
+        cpcRateField.classList.toggle('d-none', selectedCampaignType !== 'cpc');
+        cpmRateField.classList.toggle('d-none', selectedCampaignType !== 'cpm');
+
+        if (isStandard) {
+            document.getElementById('selectedDuration').value = selectedDuration || 0;
+        } else {
+            document.getElementById('selectedDuration').value = 0;
+        }
+    }
+
+    function handlePlacementChange() {
+        syncGeneralOptions();
+        const placement = document.querySelector('input[name="placement_type"]:checked').value;
+        if (placement === 'general') {
+            targetedFields.classList.add('d-none');
+            generalFields.classList.remove('d-none');
+            adSpaceSelect.value = '';
+            selectedAdSpaceId = null;
+            selectedAdSpaceHidden.value = '';
+            generalDimensionSelect.disabled = false;
+            adSpaceSelect.disabled = true;
+            spaceMultiplier = 1.0;
+            applyPlacementDimensions(null, null);
+        } else {
+            targetedFields.classList.remove('d-none');
+            generalFields.classList.add('d-none');
+            generalDimensionSelect.value = '';
+            generalDimensionSelect.disabled = true;
+            adSpaceSelect.disabled = false;
+            spaceMultiplier = 1.0;
+            applyPlacementDimensions(null, null);
+        }
+    }
+
+    function syncGeneralOptions() {
+        if (!generalDimensionSelect) return;
+        const currentType = selectedType;
+        Array.from(generalDimensionSelect.options).forEach(option => {
+            if (!option.dataset || !option.dataset.adType) {
+                option.hidden = false;
+                return;
+            }
+            option.hidden = currentType ? option.dataset.adType !== currentType : false;
+            if (option.hidden && option.selected) {
+                generalDimensionSelect.selectedIndex = 0;
+                targetWidthInput.value = '';
+                targetHeightInput.value = '';
+            }
+        });
+    }
+
+    function applyPlacementDimensions(width, height) {
+        const numericWidth = (width !== undefined && width !== null && width !== '')
+            ? parseInt(width, 10)
+            : null;
+        const numericHeight = (height !== undefined && height !== null && height !== '')
+            ? parseInt(height, 10)
+            : null;
+
+        targetWidthInput.value = numericWidth !== null ? numericWidth : '';
+        targetHeightInput.value = numericHeight !== null ? numericHeight : '';
+
+        if (numericWidth && numericHeight && selectedType === 'banner') {
+            bannerSizeHelp.textContent = `Recommended size: ${numericWidth}x${numericHeight}px. Max 2MB.`;
+        } else {
+            bannerSizeHelp.textContent = 'Recommended size updates when you choose a placement. Max 2MB.';
+        }
+
+        if (bannerPreviewContainer) {
+            bannerPreviewContainer.style.maxWidth = numericWidth ? numericWidth + 'px' : '';
+            bannerPreviewContainer.style.height = numericHeight ? numericHeight + 'px' : '';
+        }
+
+        if (textPreviewContainer) {
+            textPreviewContainer.style.maxWidth = numericWidth ? numericWidth + 'px' : '';
+            textPreviewContainer.style.minHeight = numericHeight ? Math.max(numericHeight, 120) + 'px' : '';
+        }
+    }
+
+    function isFormReady() {
+        if (!selectedType) {
+            return false;
+        }
+
+        if (selectedCampaignType === 'standard' && (!selectedDuration || selectedDuration <= 0)) {
+            return false;
+        }
+
+        const placement = document.querySelector('input[name="placement_type"]:checked').value;
+        if (placement === 'targeted') {
+            if (!selectedAdSpaceId) {
+                return false;
+            }
+        } else {
+            if (!targetWidthInput.value || !targetHeightInput.value) {
+                return false;
+            }
+        }
+
+        if (selectedCampaignType === 'cpc') {
+            if (!budgetInput.value || parseFloat(budgetInput.value) <= 0) return false;
+            if (!cpcRateInput.value || parseFloat(cpcRateInput.value) <= 0) return false;
+        }
+
+        if (selectedCampaignType === 'cpm') {
+            if (!budgetInput.value || parseFloat(budgetInput.value) <= 0) return false;
+            if (!cpmRateInput.value || parseFloat(cpmRateInput.value) <= 0) return false;
+        }
+
+        return true;
+    }
+
     function updateCostSummary() {
-        if (!selectedType || !selectedDuration) {
+        if (!selectedType) {
+            costSummary.style.display = 'none';
+            submitBtn.disabled = true;
             return;
         }
 
-        const basePrice = selectedPrice * spaceMultiplier;
+        let basePrice = selectedPrice * spaceMultiplier;
         let premiumCost = 0;
+        let totalCost = 0;
 
-        if (selectedVisibility === 'premium') {
-            premiumCost = basePrice * (selectedMultiplier - 1);
+        if (selectedCampaignType === 'standard') {
+            if (selectedVisibility === 'premium') {
+                premiumCost = basePrice * (selectedMultiplier - 1);
+            }
+            totalCost = basePrice + premiumCost;
+            basePriceLabel.textContent = 'Base Price';
+            document.getElementById('basePrice').textContent = '$' + basePrice.toFixed(2);
+            document.getElementById('premiumCost').textContent = '$' + premiumCost.toFixed(2);
+            premiumCostRow.style.display = selectedVisibility === 'premium' ? 'flex' : 'none';
+            billingModelRow.style.display = 'none';
+            rateRow.style.display = 'none';
+        } else {
+            const budget = parseFloat(budgetInput.value) || 0;
+            const rateValueNumber = selectedCampaignType === 'cpc'
+                ? (parseFloat(cpcRateInput.value) || 0)
+                : (parseFloat(cpmRateInput.value) || 0);
+            basePrice = budget;
+            totalCost = budget;
+            basePriceLabel.textContent = 'Campaign Budget';
+            document.getElementById('basePrice').textContent = '$' + budget.toFixed(2);
+            premiumCostRow.style.display = 'none';
+            billingModelRow.style.display = 'flex';
+            billingModelValue.textContent = selectedCampaignType.toUpperCase();
+            rateRow.style.display = 'flex';
+            rateLabel.textContent = selectedCampaignType === 'cpc' ? 'Cost Per Click' : 'CPM Rate';
+            rateValue.textContent = '$' + rateValueNumber.toFixed(2);
         }
 
-        const totalCost = basePrice + premiumCost;
-
-        document.getElementById('basePrice').textContent = '$' + basePrice.toFixed(2);
-        document.getElementById('premiumCost').textContent = '$' + premiumCost.toFixed(2);
         document.getElementById('totalCost').textContent = '$' + totalCost.toFixed(2);
         document.getElementById('spaceMultiplierDisplay').textContent = spaceMultiplier.toFixed(2) + 'x';
 
-        if (selectedVisibility === 'premium') {
-            document.getElementById('premiumCostRow').style.display = 'flex';
-        } else {
-            document.getElementById('premiumCostRow').style.display = 'none';
-        }
-
-        document.getElementById('costSummary').style.display = 'block';
-        document.getElementById('submitBtn').disabled = false;
+        const ready = isFormReady();
+        costSummary.style.display = ready ? 'block' : 'none';
+        submitBtn.disabled = !ready;
     }
+
+    toggleBillingFields();
+    handlePlacementChange();
+    updateCostSummary();
 </script>
 
 <?php include 'includes/footer.php'; ?>

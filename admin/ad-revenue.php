@@ -23,14 +23,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     switch ($action) {
         case 'approve':
             $ad_id = intval($_POST['ad_id']);
-            $approve_query = "UPDATE user_advertisements SET 
+            $approve_query = "UPDATE user_advertisements SET
                              status = 'active',
                              start_date = NOW(),
-                             end_date = DATE_ADD(NOW(), INTERVAL duration_days DAY)
+                             end_date = CASE
+                                 WHEN campaign_type = 'standard' THEN DATE_ADD(NOW(), INTERVAL duration_days DAY)
+                                 ELSE NULL
+                             END
                              WHERE id = :ad_id";
             $approve_stmt = $db->prepare($approve_query);
             $approve_stmt->bindParam(':ad_id', $ad_id);
-            
+
             if ($approve_stmt->execute()) {
                 $success_message = 'Advertisement approved successfully!';
             } else {
@@ -104,10 +107,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
         case 'activate':
             $ad_id = intval($_POST['ad_id']);
-            $activate_query = "UPDATE user_advertisements SET status = 'active' WHERE id = :ad_id";
+            $activate_query = "UPDATE user_advertisements SET
+                              status = 'active',
+                              start_date = COALESCE(start_date, NOW()),
+                              end_date = CASE
+                                  WHEN campaign_type = 'standard' THEN
+                                      CASE
+                                          WHEN end_date IS NULL OR end_date < NOW() THEN DATE_ADD(NOW(), INTERVAL duration_days DAY)
+                                          ELSE end_date
+                                      END
+                                  ELSE NULL
+                              END
+                              WHERE id = :ad_id";
             $activate_stmt = $db->prepare($activate_query);
             $activate_stmt->bindParam(':ad_id', $ad_id);
-            
+
             if ($activate_stmt->execute()) {
                 $success_message = 'Advertisement activated successfully!';
             } else {
@@ -141,6 +155,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 // Get filter parameters
 $status_filter = $_GET['status'] ?? 'all';
 $type_filter = $_GET['type'] ?? 'all';
+$campaign_filter = $_GET['campaign'] ?? 'all';
+$placement_filter = $_GET['placement'] ?? 'all';
 
 // Build query with filters
 $where_conditions = [];
@@ -154,6 +170,17 @@ if ($status_filter !== 'all') {
 if ($type_filter !== 'all') {
     $where_conditions[] = "ua.ad_type = :ad_type";
     $params[':ad_type'] = $type_filter;
+}
+
+if ($campaign_filter !== 'all') {
+    $where_conditions[] = "ua.campaign_type = :campaign_type";
+    $params[':campaign_type'] = $campaign_filter;
+}
+
+if ($placement_filter === 'general') {
+    $where_conditions[] = "ua.placement_type = 'general'";
+} elseif ($placement_filter === 'targeted') {
+    $where_conditions[] = "ua.placement_type = 'targeted'";
 }
 
 $where_clause = !empty($where_conditions) ? 'WHERE ' . implode(' AND ', $where_conditions) : '';
@@ -183,20 +210,47 @@ $ads_stmt->execute();
 $ads = $ads_stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get statistics
-$stats_query = "SELECT 
+$stats_query = "SELECT
     COUNT(*) as total_ads,
     SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_ads,
     SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_ads,
     SUM(CASE WHEN status = 'paused' THEN 1 ELSE 0 END) as paused_ads,
     SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expired_ads,
     SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected_ads,
+    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_ads,
     SUM(CASE WHEN ad_type = 'banner' THEN 1 ELSE 0 END) as banner_ads,
     SUM(CASE WHEN ad_type = 'text' THEN 1 ELSE 0 END) as text_ads,
-    SUM(CASE WHEN visibility_level = 'premium' THEN 1 ELSE 0 END) as premium_ads
+    SUM(CASE WHEN visibility_level = 'premium' THEN 1 ELSE 0 END) as premium_ads,
+    SUM(CASE WHEN campaign_type IN ('cpc','cpm') THEN 1 ELSE 0 END) as performance_ads,
+    SUM(CASE WHEN placement_type = 'general' THEN 1 ELSE 0 END) as general_ads,
+    COALESCE(SUM(CASE WHEN campaign_type IN ('cpc','cpm') THEN budget_total ELSE cost_paid + premium_cost END), 0) as total_budget,
+    COALESCE(SUM(CASE WHEN campaign_type IN ('cpc','cpm') THEN total_spent ELSE cost_paid + premium_cost END), 0) as total_realised,
+    COALESCE(SUM(CASE WHEN campaign_type IN ('cpc','cpm') THEN budget_remaining ELSE 0 END), 0) as total_remaining,
+    COALESCE(SUM(impression_count), 0) as total_impressions,
+    COALESCE(SUM(click_count), 0) as total_clicks
     FROM user_advertisements";
 $stats_stmt = $db->prepare($stats_query);
 $stats_stmt->execute();
 $stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
+
+$total_budget = isset($stats['total_budget']) ? (float) $stats['total_budget'] : 0.0;
+$total_realised = isset($stats['total_realised']) ? (float) $stats['total_realised'] : 0.0;
+$total_remaining = isset($stats['total_remaining']) ? (float) $stats['total_remaining'] : 0.0;
+$total_impressions_stats = isset($stats['total_impressions']) ? (int) $stats['total_impressions'] : 0;
+$total_clicks_stats = isset($stats['total_clicks']) ? (int) $stats['total_clicks'] : 0;
+$overall_ctr = $total_impressions_stats > 0 ? ($total_clicks_stats / $total_impressions_stats) * 100 : 0;
+
+function formatAdDimensions($width, $height): string
+{
+    $width = (int) $width;
+    $height = (int) $height;
+
+    if ($width === 0 || $height === 0) {
+        return 'Responsive Flex';
+    }
+
+    return $width . 'x' . $height . 'px';
+}
 
 // Get pricing
 $pricing_query = "SELECT * FROM ad_pricing ORDER BY ad_type, duration_days";
@@ -246,11 +300,9 @@ include 'includes/admin_header.php';
                         <div class="card-body">
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Ads</div>
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total Campaigns</div>
                                     <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['total_ads']); ?></div>
-                                    <small class="text-muted">
-                                        <?php echo $stats['banner_ads']; ?> Banner | <?php echo $stats['text_ads']; ?> Text
-                                    </small>
+                                    <small class="text-muted"><?php echo number_format($stats['banner_ads']); ?> Banner · <?php echo number_format($stats['text_ads']); ?> Text</small>
                                 </div>
                                 <div class="col-auto">
                                     <i class="fas fa-ad fa-2x text-gray-300"></i>
@@ -265,11 +317,12 @@ include 'includes/admin_header.php';
                         <div class="card-body">
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Pending Approval</div>
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Approval Queue</div>
                                     <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['pending_ads']); ?></div>
+                                    <small class="text-muted">Rejected: <?php echo number_format($stats['rejected_ads']); ?> · Completed: <?php echo number_format($stats['completed_ads']); ?></small>
                                 </div>
                                 <div class="col-auto">
-                                    <i class="fas fa-clock fa-2x text-gray-300"></i>
+                                    <i class="fas fa-inbox fa-2x text-gray-300"></i>
                                 </div>
                             </div>
                         </div>
@@ -281,11 +334,9 @@ include 'includes/admin_header.php';
                         <div class="card-body">
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Active Ads</div>
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Active Campaigns</div>
                                     <div class="h5 mb-0 font-weight-bold text-gray-800"><?php echo number_format($stats['active_ads']); ?></div>
-                                    <small class="text-muted">
-                                        <?php echo $stats['premium_ads']; ?> Premium
-                                    </small>
+                                    <small class="text-muted">Performance: <?php echo number_format($stats['performance_ads']); ?> · Premium: <?php echo number_format($stats['premium_ads']); ?> · General: <?php echo number_format($stats['general_ads']); ?></small>
                                 </div>
                                 <div class="col-auto">
                                     <i class="fas fa-check-circle fa-2x text-gray-300"></i>
@@ -300,16 +351,12 @@ include 'includes/admin_header.php';
                         <div class="card-body">
                             <div class="row no-gutters align-items-center">
                                 <div class="col mr-2">
-                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Other Status</div>
-                                    <div class="h5 mb-0 font-weight-bold text-gray-800">
-                                        <?php echo number_format($stats['paused_ads'] + $stats['expired_ads']); ?>
-                                    </div>
-                                    <small class="text-muted">
-                                        <?php echo $stats['paused_ads']; ?> Paused | <?php echo $stats['expired_ads']; ?> Expired
-                                    </small>
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Spend Overview</div>
+                                    <div class="h5 mb-0 font-weight-bold text-gray-800">$<?php echo number_format($total_realised, 2); ?></div>
+                                    <small class="text-muted">Budget: $<?php echo number_format($total_budget, 2); ?> · Remaining: $<?php echo number_format($total_remaining, 2); ?> · CTR: <?php echo number_format($overall_ctr, 2); ?>%</small>
                                 </div>
                                 <div class="col-auto">
-                                    <i class="fas fa-pause-circle fa-2x text-gray-300"></i>
+                                    <i class="fas fa-chart-line fa-2x text-gray-300"></i>
                                 </div>
                             </div>
                         </div>
@@ -321,8 +368,8 @@ include 'includes/admin_header.php';
             <div class="card mb-4">
                 <div class="card-body">
                     <form method="GET" class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label">Status Filter</label>
+                        <div class="col-md-3">
+                            <label class="form-label">Status</label>
                             <select name="status" class="form-select" onchange="this.form.submit()">
                                 <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Status</option>
                                 <option value="pending" <?php echo $status_filter === 'pending' ? 'selected' : ''; ?>>Pending</option>
@@ -330,17 +377,35 @@ include 'includes/admin_header.php';
                                 <option value="paused" <?php echo $status_filter === 'paused' ? 'selected' : ''; ?>>Paused</option>
                                 <option value="expired" <?php echo $status_filter === 'expired' ? 'selected' : ''; ?>>Expired</option>
                                 <option value="rejected" <?php echo $status_filter === 'rejected' ? 'selected' : ''; ?>>Rejected</option>
+                                <option value="completed" <?php echo $status_filter === 'completed' ? 'selected' : ''; ?>>Completed</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Type Filter</label>
+                        <div class="col-md-3">
+                            <label class="form-label">Ad Format</label>
                             <select name="type" class="form-select" onchange="this.form.submit()">
                                 <option value="all" <?php echo $type_filter === 'all' ? 'selected' : ''; ?>>All Types</option>
                                 <option value="banner" <?php echo $type_filter === 'banner' ? 'selected' : ''; ?>>Banner Ads</option>
                                 <option value="text" <?php echo $type_filter === 'text' ? 'selected' : ''; ?>>Text Ads</option>
                             </select>
                         </div>
-                        <div class="col-md-4 d-flex align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">Campaign Type</label>
+                            <select name="campaign" class="form-select" onchange="this.form.submit()">
+                                <option value="all" <?php echo $campaign_filter === 'all' ? 'selected' : ''; ?>>All Campaigns</option>
+                                <option value="standard" <?php echo $campaign_filter === 'standard' ? 'selected' : ''; ?>>Standard</option>
+                                <option value="cpc" <?php echo $campaign_filter === 'cpc' ? 'selected' : ''; ?>>CPC</option>
+                                <option value="cpm" <?php echo $campaign_filter === 'cpm' ? 'selected' : ''; ?>>CPM</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Placement</label>
+                            <select name="placement" class="form-select" onchange="this.form.submit()">
+                                <option value="all" <?php echo $placement_filter === 'all' ? 'selected' : ''; ?>>All Placements</option>
+                                <option value="targeted" <?php echo $placement_filter === 'targeted' ? 'selected' : ''; ?>>Targeted</option>
+                                <option value="general" <?php echo $placement_filter === 'general' ? 'selected' : ''; ?>>General Rotation</option>
+                            </select>
+                        </div>
+                        <div class="col-12 text-end">
                             <a href="ad-revenue.php" class="btn btn-secondary">Clear Filters</a>
                         </div>
                     </form>
@@ -358,11 +423,10 @@ include 'includes/admin_header.php';
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
-                                        <th>Ad Details</th>
+                                        <th>Campaign</th>
                                         <th>Advertiser</th>
-                                        <th>Type</th>
-                                        <th>Duration</th>
-                                        <th>Cost</th>
+                                        <th>Format &amp; Placement</th>
+                                        <th>Billing</th>
                                         <th>Performance</th>
                                         <th>Status</th>
                                         <th>Actions</th>
@@ -370,66 +434,90 @@ include 'includes/admin_header.php';
                                 </thead>
                                 <tbody>
                                     <?php foreach ($ads as $ad): ?>
-                                    <tr>
-                                        <td>
-                                            <strong><?php echo htmlspecialchars($ad['title']); ?></strong>
-                                            <?php if ($ad['ad_type'] === 'banner' && $ad['banner_image']): ?>
-                                                <br><img src="../<?php echo htmlspecialchars($ad['banner_image']); ?>" 
-                                                         alt="Banner" style="max-width: 150px; max-height: 50px;" class="mt-1">
-                                            <?php elseif ($ad['ad_type'] === 'text'): ?>
-                                                <br><small class="text-muted"><?php echo htmlspecialchars($ad['text_description']); ?></small>
-                                            <?php endif; ?>
-                                            <?php if ($ad['visibility_level'] === 'premium'): ?>
-                                                <br><span class="badge bg-warning text-dark">Premium</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <strong><?php echo htmlspecialchars($ad['username']); ?></strong>
-                                            <br><small class="text-muted"><?php echo htmlspecialchars($ad['email']); ?></small>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-<?php echo $ad['ad_type'] === 'banner' ? 'primary' : 'secondary'; ?>">
-                                                <?php echo ucfirst($ad['ad_type']); ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <?php echo $ad['duration_days']; ?> days
-                                            <?php if ($ad['status'] === 'active' && $ad['days_remaining'] !== null): ?>
-                                                <br><small class="text-muted"><?php echo max(0, $ad['days_remaining']); ?> left</small>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            $<?php echo number_format($ad['cost_paid'], 2); ?>
-                                            <?php if ($ad['premium_cost'] > 0): ?>
-                                                <br><small class="text-warning">+$<?php echo number_format($ad['premium_cost'], 2); ?></small>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td>
-                                            <small>
-                                                <i class="fas fa-eye"></i> <?php echo number_format($ad['impression_count']); ?>
-                                                <br>
-                                                <i class="fas fa-mouse-pointer"></i> <?php echo number_format($ad['click_count']); ?>
-                                                <?php if ($ad['impression_count'] > 0): ?>
-                                                    <br>CTR: <?php echo number_format(($ad['click_count'] / $ad['impression_count']) * 100, 2); ?>%
+                                        <?php
+                                        $is_performance = in_array($ad['campaign_type'], ['cpc', 'cpm'], true);
+                                        $standard_cost = (float) $ad['cost_paid'] + (float) $ad['premium_cost'];
+                                        $budget_value = $is_performance ? (float) $ad['budget_total'] : $standard_cost;
+                                        $spent_value = $is_performance ? (float) $ad['total_spent'] : $standard_cost;
+                                        $remaining_value = $is_performance ? max(0, (float) $ad['budget_remaining']) : 0.0;
+                                        $spend_percent = $budget_value > 0 ? min(100, ($spent_value / $budget_value) * 100) : 0;
+                                        $ctr_value = $ad['impression_count'] > 0 ? ($ad['click_count'] / $ad['impression_count']) * 100 : 0;
+                                        $rate_label = '';
+                                        if ($ad['campaign_type'] === 'cpc') {
+                                            $rate_label = 'CPC $' . number_format((float) $ad['cpc_rate'], 2);
+                                        } elseif ($ad['campaign_type'] === 'cpm') {
+                                            $rate_label = 'CPM $' . number_format((float) $ad['cpm_rate'], 2);
+                                        }
+                                        $days_remaining = isset($ad['days_remaining']) ? (int) $ad['days_remaining'] : null;
+                                        ?>
+                                        <tr>
+                                            <td>
+                                                <strong><?php echo htmlspecialchars($ad['title']); ?></strong>
+                                                <?php if ($ad['ad_type'] === 'banner' && $ad['banner_image']): ?>
+                                                    <br><img src="../<?php echo htmlspecialchars($ad['banner_image']); ?>" alt="Banner" style="max-width: 150px; max-height: 50px;" class="mt-1">
+                                                <?php elseif ($ad['ad_type'] === 'text'): ?>
+                                                    <br><small class="text-muted"><?php echo htmlspecialchars($ad['text_description']); ?></small>
                                                 <?php endif; ?>
-                                            </small>
-                                        </td>
-                                        <td>
-                                            <?php
-                                            $status_colors = [
-                                                'pending' => 'warning',
-                                                'active' => 'success',
-                                                'paused' => 'secondary',
-                                                'expired' => 'danger',
-                                                'rejected' => 'dark'
-                                            ];
-                                            $color = $status_colors[$ad['status']] ?? 'secondary';
-                                            ?>
-                                            <span class="badge bg-<?php echo $color; ?>">
-                                                <?php echo ucfirst($ad['status']); ?>
-                                            </span>
-                                        </td>
-                                        <td>
+                                                <?php if ($ad['visibility_level'] === 'premium'): ?>
+                                                    <br><span class="badge bg-warning text-dark">Premium</span>
+                                                <?php endif; ?>
+                                                <br><small class="text-muted">Created: <?php echo date('Y-m-d', strtotime($ad['created_at'])); ?></small>
+                                            </td>
+                                            <td>
+                                                <strong><?php echo htmlspecialchars($ad['username']); ?></strong>
+                                                <br><small class="text-muted"><?php echo htmlspecialchars($ad['email']); ?></small>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-<?php echo $ad['ad_type'] === 'banner' ? 'primary' : 'secondary'; ?>"><?php echo ucfirst($ad['ad_type']); ?></span>
+                                                <?php if ($ad['placement_type'] === 'general'): ?>
+                                                    <span class="badge bg-info-subtle text-info ms-1">General</span>
+                                                    <div class="text-muted small">Dimensions: <?php echo formatAdDimensions($ad['target_width'], $ad['target_height']); ?></div>
+                                                <?php else: ?>
+                                                    <span class="badge bg-secondary-subtle text-secondary ms-1">Targeted</span>
+                                                    <div class="text-muted small">Slot: <?php echo htmlspecialchars($ad['target_space_id'] ?? 'N/A'); ?></div>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-dark text-white"><?php echo strtoupper($ad['campaign_type']); ?></span>
+                                                <div class="text-muted small">Budget: $<?php echo number_format($budget_value, 2); ?></div>
+                                                <?php if ($is_performance): ?>
+                                                    <div class="text-muted small">Spent: $<?php echo number_format($spent_value, 2); ?> · Remaining: $<?php echo number_format($remaining_value, 2); ?></div>
+                                                    <div class="progress my-1" style="height: 6px;">
+                                                        <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $spend_percent; ?>%;" aria-valuenow="<?php echo $spend_percent; ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                                                    </div>
+                                                    <?php if ($rate_label): ?>
+                                                        <div class="text-muted small"><?php echo $rate_label; ?></div>
+                                                    <?php endif; ?>
+                                                <?php else: ?>
+                                                    <div class="text-muted small">Paid: $<?php echo number_format($standard_cost, 2); ?></div>
+                                                    <div class="text-muted small">Duration: <?php echo (int) $ad['duration_days']; ?> days</div>
+                                                    <?php if ($ad['status'] === 'active' && $days_remaining !== null): ?>
+                                                        <div class="text-muted small">Days remaining: <?php echo max(0, $days_remaining); ?></div>
+                                                    <?php endif; ?>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <small>
+                                                    <i class="fas fa-eye"></i> <?php echo number_format($ad['impression_count']); ?><br>
+                                                    <i class="fas fa-mouse-pointer"></i> <?php echo number_format($ad['click_count']); ?><br>
+                                                    CTR: <?php echo number_format($ctr_value, 2); ?>%
+                                                </small>
+                                            </td>
+                                            <td>
+                                                <?php
+                                                $status_colors = [
+                                                    'pending' => 'warning',
+                                                    'active' => 'success',
+                                                    'paused' => 'secondary',
+                                                    'expired' => 'danger',
+                                                    'rejected' => 'dark',
+                                                    'completed' => 'primary'
+                                                ];
+                                                $color = $status_colors[$ad['status']] ?? 'secondary';
+                                                ?>
+                                                <span class="badge bg-<?php echo $color; ?>"><?php echo ucfirst($ad['status']); ?></span>
+                                            </td>
+                                            <td>
                                             <div class="btn-group btn-group-sm">
                                                 <?php if ($ad['status'] === 'pending'): ?>
                                                     <form method="POST" class="d-inline">

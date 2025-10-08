@@ -11,26 +11,26 @@ class AdManager {
      */
     public function getRandomAd($ad_type = 'banner', $prefer_premium = true, $space_id = null) {
         try {
-            // Build query based on preferences
-            $query = "SELECT ua.* FROM user_advertisements ua
-                     LEFT JOIN ad_spaces ads ON ua.ad_space_id = ads.id
-                     WHERE ua.status = 'active'
-                     AND ua.ad_type = :ad_type
-                     AND ua.start_date <= NOW()
-                     AND ua.end_date >= NOW()";
+            $query = "SELECT ua.*
+                      FROM user_advertisements ua
+                      WHERE ua.status = 'active'
+                        AND ua.ad_type = :ad_type
+                        AND (ua.campaign_type = 'standard' OR ua.budget_remaining > 0)
+                        AND (ua.start_date IS NULL OR ua.start_date <= NOW())
+                        AND (ua.end_date IS NULL OR ua.end_date >= NOW() OR ua.campaign_type IN ('cpc','cpm'))";
 
             if ($space_id) {
-                $query .= " AND ua.ad_space_id = :space_id";
+                $query .= " AND ua.placement_type = 'targeted' AND ua.target_space_id = :space_id";
             }
 
             if ($prefer_premium) {
                 $query .= " ORDER BY
-                           CASE ua.visibility_level
-                             WHEN 'premium' THEN 1
-                             ELSE 2
-                           END,
-                           RAND()
-                           LIMIT 1";
+                            CASE ua.visibility_level
+                                WHEN 'premium' THEN 1
+                                ELSE 2
+                            END,
+                            RAND()
+                            LIMIT 1";
             } else {
                 $query .= " ORDER BY RAND() LIMIT 1";
             }
@@ -51,32 +51,83 @@ class AdManager {
     /**
      * Get ad for specific space by space_id string
      */
-    public function getAdForSpace($space_id) {
+    public function getAdForSpace($space_id, $space = null) {
         try {
-            $query = "SELECT ua.* FROM user_advertisements ua
-                     WHERE ua.status = 'active'
-                     AND ua.target_space_id = :space_id
-                     AND (
-                       (ua.start_date IS NULL OR ua.start_date <= NOW())
-                       AND
-                       (ua.end_date IS NULL OR ua.end_date >= NOW())
-                     )
-                     ORDER BY
-                       CASE ua.visibility_level
-                         WHEN 'premium' THEN 1
-                         ELSE 2
-                       END,
-                       RAND()
-                     LIMIT 1";
+            if ($space === null) {
+                $space_stmt = $this->db->prepare("SELECT * FROM ad_spaces WHERE space_id = :space_id LIMIT 1");
+                $space_stmt->bindParam(':space_id', $space_id);
+                $space_stmt->execute();
+                $space = $space_stmt->fetch(PDO::FETCH_ASSOC);
+            }
 
-            $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':space_id', $space_id);
-            $stmt->execute();
+            if (!$space) {
+                return null;
+            }
 
-            return $stmt->fetch(PDO::FETCH_ASSOC);
+            $ad = $this->fetchAdForSpace($space, false);
+
+            if (!$ad) {
+                $ad = $this->fetchAdForSpace($space, true);
+            }
+
+            return $ad;
         } catch (Exception $e) {
             return null;
         }
+    }
+
+    private function fetchAdForSpace(array $space, bool $allowGeneral = false) {
+        $adTypes = [];
+        if ($space['ad_type'] === 'both') {
+            $adTypes = ['banner', 'text'];
+        } else {
+            $adTypes = [$space['ad_type']];
+        }
+
+        $query = "SELECT ua.*
+                  FROM user_advertisements ua
+                  WHERE ua.status = 'active'
+                    AND ua.ad_type IN (" . implode(',', array_fill(0, count($adTypes), '?')) . ")
+                    AND (ua.campaign_type = 'standard' OR ua.budget_remaining > 0)
+                    AND (ua.start_date IS NULL OR ua.start_date <= NOW())
+                    AND (ua.end_date IS NULL OR ua.end_date >= NOW() OR ua.campaign_type IN ('cpc','cpm'))";
+
+        $params = $adTypes;
+
+        if ($allowGeneral) {
+            $query .= " AND ua.placement_type = 'general'";
+
+            if (!empty($space['width']) && !empty($space['height'])) {
+                $query .= " AND (ua.target_width IS NULL OR ua.target_width = ?)";
+                $query .= " AND (ua.target_height IS NULL OR ua.target_height = ?)";
+                $params[] = (int) $space['width'];
+                $params[] = (int) $space['height'];
+            } else {
+                $query .= " AND ua.target_width IS NULL AND ua.target_height IS NULL";
+            }
+        } else {
+            $query .= " AND ua.placement_type = 'targeted' AND ua.target_space_id = ?";
+            $params[] = $space['space_id'];
+        }
+
+        $query .= " ORDER BY
+                        CASE ua.visibility_level
+                            WHEN 'premium' THEN 1
+                            ELSE 2
+                        END,
+                        CASE ua.campaign_type
+                            WHEN 'cpc' THEN 1
+                            WHEN 'cpm' THEN 2
+                            ELSE 3
+                        END,
+                        ua.updated_at DESC,
+                        RAND()
+                    LIMIT 1";
+
+        $stmt = $this->db->prepare($query);
+        $stmt->execute($params);
+
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
     
     /**
@@ -84,23 +135,26 @@ class AdManager {
      */
     public function getAds($ad_type = 'banner', $limit = 3) {
         try {
-            $query = "SELECT * FROM user_advertisements 
-                     WHERE status = 'active' 
-                     AND ad_type = :ad_type
-                     AND end_date > NOW()
-                     ORDER BY 
-                       CASE visibility_level 
-                         WHEN 'premium' THEN 1 
-                         ELSE 2 
-                       END,
-                       RAND()
-                     LIMIT :limit";
-            
+            $query = "SELECT * FROM user_advertisements
+                      WHERE status = 'active'
+                        AND ad_type = :ad_type
+                        AND (campaign_type = 'standard' OR budget_remaining > 0)
+                        AND (start_date IS NULL OR start_date <= NOW())
+                        AND (end_date IS NULL OR end_date >= NOW() OR campaign_type IN ('cpc','cpm'))
+                      ORDER BY
+                        CASE visibility_level
+                            WHEN 'premium' THEN 1
+                            ELSE 2
+                        END,
+                        updated_at DESC,
+                        RAND()
+                      LIMIT :limit";
+
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':ad_type', $ad_type);
             $stmt->bindParam(':limit', $limit, PDO::PARAM_INT);
             $stmt->execute();
-            
+
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) {
             return [];
@@ -112,30 +166,39 @@ class AdManager {
      */
     public function trackImpression($ad_id, $user_id = null, $page_url = null) {
         try {
-            // Update impression count
-            $update_query = "UPDATE user_advertisements 
-                           SET impression_count = impression_count + 1 
-                           WHERE id = :ad_id";
+            $ad = $this->getAdById($ad_id);
+
+            if (!$ad || ($ad['campaign_type'] !== 'standard' && $ad['budget_remaining'] <= 0)) {
+                return false;
+            }
+
+            $update_query = "UPDATE user_advertisements
+                             SET impression_count = impression_count + 1,
+                                 updated_at = NOW()
+                             WHERE id = :ad_id";
             $update_stmt = $this->db->prepare($update_query);
             $update_stmt->bindParam(':ad_id', $ad_id);
             $update_stmt->execute();
-            
-            // Log impression
-            $log_query = "INSERT INTO ad_impressions 
-                         (ad_id, user_id, ip_address, user_agent, page_url) 
-                         VALUES (:ad_id, :user_id, :ip_address, :user_agent, :page_url)";
+
+            if ($ad['campaign_type'] === 'cpm' && $ad['cpm_rate'] > 0) {
+                $this->applySpend($ad, $ad['cpm_rate'] / 1000, 'impression');
+            }
+
+            $log_query = "INSERT INTO ad_impressions
+                          (ad_id, user_id, ip_address, user_agent, page_url)
+                          VALUES (:ad_id, :user_id, :ip_address, :user_agent, :page_url)";
             $log_stmt = $this->db->prepare($log_query);
             $log_stmt->bindParam(':ad_id', $ad_id);
             $log_stmt->bindParam(':user_id', $user_id);
-            
+
             $ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
             $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
-            
+
             $log_stmt->bindParam(':ip_address', $ip_address);
             $log_stmt->bindParam(':user_agent', $user_agent);
             $log_stmt->bindParam(':page_url', $page_url);
             $log_stmt->execute();
-            
+
             return true;
         } catch (Exception $e) {
             return false;
@@ -147,30 +210,39 @@ class AdManager {
      */
     public function trackClick($ad_id, $user_id = null, $referrer_url = null) {
         try {
-            // Update click count
-            $update_query = "UPDATE user_advertisements 
-                           SET click_count = click_count + 1 
-                           WHERE id = :ad_id";
+            $ad = $this->getAdById($ad_id);
+
+            if (!$ad || ($ad['campaign_type'] !== 'standard' && $ad['budget_remaining'] <= 0)) {
+                return false;
+            }
+
+            $update_query = "UPDATE user_advertisements
+                             SET click_count = click_count + 1,
+                                 updated_at = NOW()
+                             WHERE id = :ad_id";
             $update_stmt = $this->db->prepare($update_query);
             $update_stmt->bindParam(':ad_id', $ad_id);
             $update_stmt->execute();
-            
-            // Log click
-            $log_query = "INSERT INTO ad_clicks 
-                         (ad_id, user_id, ip_address, user_agent, referrer_url) 
-                         VALUES (:ad_id, :user_id, :ip_address, :user_agent, :referrer_url)";
+
+            if ($ad['campaign_type'] === 'cpc' && $ad['cpc_rate'] > 0) {
+                $this->applySpend($ad, $ad['cpc_rate'], 'click');
+            }
+
+            $log_query = "INSERT INTO ad_clicks
+                          (ad_id, user_id, ip_address, user_agent, referrer_url)
+                          VALUES (:ad_id, :user_id, :ip_address, :user_agent, :referrer_url)";
             $log_stmt = $this->db->prepare($log_query);
             $log_stmt->bindParam(':ad_id', $ad_id);
             $log_stmt->bindParam(':user_id', $user_id);
-            
+
             $ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
             $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? null;
-            
+
             $log_stmt->bindParam(':ip_address', $ip_address);
             $log_stmt->bindParam(':user_agent', $user_agent);
             $log_stmt->bindParam(':referrer_url', $referrer_url);
             $log_stmt->execute();
-            
+
             return true;
         } catch (Exception $e) {
             return false;
@@ -263,15 +335,57 @@ class AdManager {
      */
     public function expireOldAds() {
         try {
-            $query = "UPDATE user_advertisements 
-                     SET status = 'expired' 
-                     WHERE status = 'active' 
-                     AND end_date <= NOW()";
+            $query = "UPDATE user_advertisements
+                      SET status = CASE
+                            WHEN campaign_type IN ('cpc','cpm') AND budget_remaining <= 0 THEN 'completed'
+                            ELSE 'expired'
+                      END
+                      WHERE status = 'active'
+                        AND campaign_type = 'standard'
+                        AND end_date <= NOW()";
             $stmt = $this->db->prepare($query);
             return $stmt->execute();
         } catch (Exception $e) {
             return false;
         }
+    }
+
+    private function getAdById($ad_id) {
+        $stmt = $this->db->prepare("SELECT * FROM user_advertisements WHERE id = :ad_id LIMIT 1");
+        $stmt->bindParam(':ad_id', $ad_id);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
+
+    private function applySpend(array $ad, float $amount, string $trigger) {
+        if ($amount <= 0) {
+            return;
+        }
+
+        $update_query = "UPDATE user_advertisements
+                         SET budget_remaining = GREATEST(budget_remaining - :amount, 0),
+                             total_spent = total_spent + :amount,
+                             status = CASE
+                                 WHEN campaign_type IN ('cpc','cpm') AND (budget_remaining - :amount) <= 0 THEN 'completed'
+                                 ELSE status
+                             END,
+                             updated_at = NOW()
+                         WHERE id = :ad_id";
+        $update_stmt = $this->db->prepare($update_query);
+        $update_stmt->bindParam(':amount', $amount);
+        $update_stmt->bindParam(':ad_id', $ad['id']);
+        $update_stmt->execute();
+
+        $description = sprintf('Automatic %s spend for campaign #%d', $trigger, $ad['id']);
+        $log_query = "INSERT INTO ad_transactions (ad_id, user_id, amount, transaction_type, description)
+                      VALUES (:ad_id, :user_id, :amount, 'spend', :description)";
+        $log_stmt = $this->db->prepare($log_query);
+        $log_amount = -abs($amount);
+        $log_stmt->bindParam(':ad_id', $ad['id']);
+        $log_stmt->bindParam(':user_id', $ad['user_id']);
+        $log_stmt->bindParam(':amount', $log_amount);
+        $log_stmt->bindParam(':description', $description);
+        $log_stmt->execute();
     }
 }
 ?>

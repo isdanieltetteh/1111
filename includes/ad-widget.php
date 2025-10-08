@@ -40,7 +40,7 @@ function displayAdSpace($db, $space_id, $options = []) {
     }
 
     // Get ad for this space
-    $ad = $ad_manager->getAdForSpace($space_id);
+    $ad = $ad_manager->getAdForSpace($space_id, $space);
 
     if ($ad) {
         // Display active ad
@@ -66,25 +66,27 @@ function renderAdPlaceholder($space, $options = []) {
         $dimensions = $space['width'] . 'x' . $space['height'];
     }
 
-    $html = '<div class="content-block" data-space-id="' . htmlspecialchars($space['space_id']) . '" style="';
-    $html .= 'background: #ffffff; ';
-    $html .= 'border: 1px solid #e5e7eb; ';
-    $html .= 'border-radius: 0.5rem; ';
-    $html .= 'padding: 1.5rem; ';
-    $html .= 'text-align: center; ';
-    $html .= 'margin: 1rem 0; ';
+    $style = 'background: #ffffff; '
+        . 'border: 1px solid #e5e7eb; '
+        . 'border-radius: 0.5rem; '
+        . 'padding: 1.5rem; '
+        . 'text-align: center; '
+        . 'margin: 1rem 0; '
+        . 'display: flex; '
+        . 'align-items: center; '
+        . 'justify-content: center;';
 
-    if ($space['width']) {
-        $html .= 'max-width: ' . $space['width'] . 'px; ';
-    }
-    if ($space['height']) {
-        $html .= 'min-height: ' . max($space['height'], 100) . 'px; ';
+    if (!empty($space['width'])) {
+        $style .= ' max-width: ' . (int) $space['width'] . 'px; width: ' . (int) $space['width'] . 'px;';
     }
 
-    $html .= 'display: flex; ';
-    $html .= 'align-items: center; ';
-    $html .= 'justify-content: center; ';
-    $html .= '">';
+    if (!empty($space['height'])) {
+        $style .= ' min-height: ' . (int) $space['height'] . 'px; height: ' . (int) $space['height'] . 'px;';
+    } else {
+        $style .= ' min-height: 150px;';
+    }
+
+    $html = '<div class="content-block" data-space-id="' . htmlspecialchars($space['space_id']) . '" style="' . $style . '">';
 
     $html .= '<div>';
     $html .= '<div style="color: #64748b; margin-bottom: 0.75rem;">';

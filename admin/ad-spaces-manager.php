@@ -7,8 +7,7 @@ $auth = new Auth();
 $database = new Database();
 $db = $database->getConnection();
 
-// Check if user is admin
-if (!$auth->isLoggedIn() || !$auth->isAdmin()) {
+if (!$auth->isAdmin()) {
     header('Location: ../login.php');
     exit();
 }
@@ -16,679 +15,528 @@ if (!$auth->isLoggedIn() || !$auth->isAdmin()) {
 $success_message = '';
 $error_message = '';
 
-// Handle form submissions
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    if (isset($_POST['action'])) {
-        switch ($_POST['action']) {
+function sanitizeText(?string $value): string
+{
+    return trim((string) $value);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+
+    try {
+        switch ($action) {
             case 'create_space':
-                $space_id = trim($_POST['space_id']);
-                $space_name = trim($_POST['space_name']);
-                $page_location = trim($_POST['page_location']);
-                $dimensions = trim($_POST['dimensions']);
-                $width = intval($_POST['width']);
-                $height = intval($_POST['height']);
-                $price_multiplier = floatval($_POST['price_multiplier']);
-                $max_ads_rotation = intval($_POST['max_ads_rotation']);
-                $display_order = intval($_POST['display_order']);
-                
-                $insert_query = "INSERT INTO ad_spaces 
-                                (space_id, space_name, page_location, dimensions, width, height, 
-                                 price_multiplier, max_ads_rotation, display_order, is_enabled)
-                                VALUES 
-                                (:space_id, :space_name, :page_location, :dimensions, :width, :height,
-                                 :price_multiplier, :max_ads_rotation, :display_order, 1)";
-                $insert_stmt = $db->prepare($insert_query);
-                $insert_stmt->bindParam(':space_id', $space_id);
-                $insert_stmt->bindParam(':space_name', $space_name);
-                $insert_stmt->bindParam(':page_location', $page_location);
-                $insert_stmt->bindParam(':dimensions', $dimensions);
-                $insert_stmt->bindParam(':width', $width);
-                $insert_stmt->bindParam(':height', $height);
-                $insert_stmt->bindParam(':price_multiplier', $price_multiplier);
-                $insert_stmt->bindParam(':max_ads_rotation', $max_ads_rotation);
-                $insert_stmt->bindParam(':display_order', $display_order);
-                
-                if ($insert_stmt->execute()) {
-                    $success_message = "Ad space created successfully!";
-                } else {
-                    $error_message = "Failed to create ad space.";
+                $spaceId = sanitizeText($_POST['space_id'] ?? '');
+                $spaceName = sanitizeText($_POST['space_name'] ?? '');
+                $pageLocation = sanitizeText($_POST['page_location'] ?? '');
+                $position = sanitizeText($_POST['position'] ?? '');
+                $adType = $_POST['ad_type'] ?? 'both';
+                $widthInput = sanitizeText($_POST['width'] ?? '');
+                $heightInput = sanitizeText($_POST['height'] ?? '');
+                $multiplier = max(0.1, (float) ($_POST['base_price_multiplier'] ?? 1));
+                $isPremiumOnly = isset($_POST['is_premium_only']) ? 1 : 0;
+                $displayOrder = (int) ($_POST['display_order'] ?? 0);
+                $rotation = max(1, (int) ($_POST['max_ads_rotation'] ?? 5));
+
+                if ($spaceId === '' || $spaceName === '' || $pageLocation === '' || $position === '') {
+                    throw new InvalidArgumentException('Please complete all required fields.');
                 }
+
+                if (!in_array($adType, ['banner', 'text', 'both'], true)) {
+                    $adType = 'both';
+                }
+
+                $checkStmt = $db->prepare('SELECT COUNT(*) FROM ad_spaces WHERE space_id = :space_id');
+                $checkStmt->bindParam(':space_id', $spaceId);
+                $checkStmt->execute();
+                if ($checkStmt->fetchColumn() > 0) {
+                    throw new RuntimeException('Space ID already exists. Choose a unique identifier.');
+                }
+
+                $width = $widthInput !== '' ? max(0, (int) $widthInput) : null;
+                $height = $heightInput !== '' ? max(0, (int) $heightInput) : null;
+
+                $insertQuery = 'INSERT INTO ad_spaces
+                    (space_id, space_name, page_location, position, ad_type, width, height, base_price_multiplier, is_enabled, is_premium_only, display_order, max_ads_rotation)
+                    VALUES
+                    (:space_id, :space_name, :page_location, :position, :ad_type, :width, :height, :multiplier, 1, :premium_only, :display_order, :rotation)';
+
+                $insertStmt = $db->prepare($insertQuery);
+                $insertStmt->bindParam(':space_id', $spaceId);
+                $insertStmt->bindParam(':space_name', $spaceName);
+                $insertStmt->bindParam(':page_location', $pageLocation);
+                $insertStmt->bindParam(':position', $position);
+                $insertStmt->bindParam(':ad_type', $adType);
+
+                if ($width !== null) {
+                    $insertStmt->bindValue(':width', $width, PDO::PARAM_INT);
+                } else {
+                    $insertStmt->bindValue(':width', null, PDO::PARAM_NULL);
+                }
+
+                if ($height !== null) {
+                    $insertStmt->bindValue(':height', $height, PDO::PARAM_INT);
+                } else {
+                    $insertStmt->bindValue(':height', null, PDO::PARAM_NULL);
+                }
+
+                $insertStmt->bindValue(':multiplier', $multiplier);
+                $insertStmt->bindValue(':premium_only', $isPremiumOnly, PDO::PARAM_INT);
+                $insertStmt->bindValue(':display_order', $displayOrder, PDO::PARAM_INT);
+                $insertStmt->bindValue(':rotation', $rotation, PDO::PARAM_INT);
+                $insertStmt->execute();
+
+                $success_message = 'Ad space created successfully.';
                 break;
-                
+
             case 'toggle_space':
-                $space_id = intval($_POST['space_id']);
-                $is_enabled = intval($_POST['is_enabled']);
-                
-                $toggle_query = "UPDATE ad_spaces SET is_enabled = :is_enabled WHERE id = :space_id";
-                $toggle_stmt = $db->prepare($toggle_query);
-                $toggle_stmt->bindParam(':is_enabled', $is_enabled);
-                $toggle_stmt->bindParam(':space_id', $space_id);
-                
-                if ($toggle_stmt->execute()) {
-                    $success_message = "Ad space " . ($is_enabled ? "enabled" : "disabled") . " successfully!";
-                } else {
-                    $error_message = "Failed to update ad space.";
-                }
+                $spaceId = (int) ($_POST['space_id'] ?? 0);
+                $isEnabled = isset($_POST['is_enabled']) && (int) $_POST['is_enabled'] === 1 ? 1 : 0;
+
+                $toggleStmt = $db->prepare('UPDATE ad_spaces SET is_enabled = :enabled WHERE id = :id');
+                $toggleStmt->bindParam(':enabled', $isEnabled, PDO::PARAM_INT);
+                $toggleStmt->bindParam(':id', $spaceId, PDO::PARAM_INT);
+                $toggleStmt->execute();
+
+                $success_message = $isEnabled ? 'Ad space activated.' : 'Ad space disabled.';
                 break;
-                
-            case 'update_pricing':
-                $space_id = intval($_POST['space_id']);
-                $price_multiplier = floatval($_POST['price_multiplier']);
-                
-                $update_query = "UPDATE ad_spaces SET price_multiplier = :price_multiplier WHERE id = :space_id";
-                $update_stmt = $db->prepare($update_query);
-                $update_stmt->bindParam(':price_multiplier', $price_multiplier);
-                $update_stmt->bindParam(':space_id', $space_id);
-                
-                if ($update_stmt->execute()) {
-                    $success_message = "Pricing updated successfully!";
-                } else {
-                    $error_message = "Failed to update pricing.";
+
+            case 'update_space':
+                $spaceId = (int) ($_POST['space_id'] ?? 0);
+                $spaceName = sanitizeText($_POST['space_name'] ?? '');
+                $pageLocation = sanitizeText($_POST['page_location'] ?? '');
+                $position = sanitizeText($_POST['position'] ?? '');
+                $adType = $_POST['ad_type'] ?? 'both';
+                $widthInput = sanitizeText($_POST['width'] ?? '');
+                $heightInput = sanitizeText($_POST['height'] ?? '');
+                $multiplier = max(0.1, (float) ($_POST['base_price_multiplier'] ?? 1));
+                $isPremiumOnly = isset($_POST['is_premium_only']) ? 1 : 0;
+                $displayOrder = (int) ($_POST['display_order'] ?? 0);
+                $rotation = max(1, (int) ($_POST['max_ads_rotation'] ?? 5));
+
+                if (!in_array($adType, ['banner', 'text', 'both'], true)) {
+                    $adType = 'both';
                 }
+
+                $width = $widthInput !== '' ? max(0, (int) $widthInput) : null;
+                $height = $heightInput !== '' ? max(0, (int) $heightInput) : null;
+
+                $updateQuery = 'UPDATE ad_spaces
+                    SET space_name = :space_name,
+                        page_location = :page_location,
+                        position = :position,
+                        ad_type = :ad_type,
+                        width = :width,
+                        height = :height,
+                        base_price_multiplier = :multiplier,
+                        is_premium_only = :premium_only,
+                        display_order = :display_order,
+                        max_ads_rotation = :rotation
+                    WHERE id = :id';
+
+                $updateStmt = $db->prepare($updateQuery);
+                $updateStmt->bindParam(':space_name', $spaceName);
+                $updateStmt->bindParam(':page_location', $pageLocation);
+                $updateStmt->bindParam(':position', $position);
+                $updateStmt->bindParam(':ad_type', $adType);
+
+                if ($width !== null) {
+                    $updateStmt->bindValue(':width', $width, PDO::PARAM_INT);
+                } else {
+                    $updateStmt->bindValue(':width', null, PDO::PARAM_NULL);
+                }
+
+                if ($height !== null) {
+                    $updateStmt->bindValue(':height', $height, PDO::PARAM_INT);
+                } else {
+                    $updateStmt->bindValue(':height', null, PDO::PARAM_NULL);
+                }
+
+                $updateStmt->bindValue(':multiplier', $multiplier);
+                $updateStmt->bindValue(':premium_only', $isPremiumOnly, PDO::PARAM_INT);
+                $updateStmt->bindValue(':display_order', $displayOrder, PDO::PARAM_INT);
+                $updateStmt->bindValue(':rotation', $rotation, PDO::PARAM_INT);
+                $updateStmt->bindValue(':id', $spaceId, PDO::PARAM_INT);
+                $updateStmt->execute();
+
+                $success_message = 'Ad space updated successfully.';
                 break;
         }
+    } catch (Exception $exception) {
+        $error_message = 'Action failed: ' . $exception->getMessage();
     }
 }
 
-// Get all ad spaces with performance metrics
-$spaces_query = "SELECT
-    ads.*,
-    COUNT(DISTINCT ua.id) as active_ads_count,
-    COALESCE(SUM(ua.impression_count), 0) as total_impressions,
-    COALESCE(SUM(ua.click_count), 0) as total_clicks,
-    COALESCE(SUM(ua.cost_paid + ua.premium_cost), 0) as total_revenue
+$financialExpression = "CASE WHEN ua.campaign_type IN ('cpc','cpm') THEN ua.total_spent ELSE (ua.cost_paid + ua.premium_cost) END";
+
+$spacesQuery = "SELECT
+        ads.*,
+        COALESCE(SUM(CASE WHEN ua.status IN ('active','paused') THEN 1 ELSE 0 END), 0) AS campaign_count,
+        COALESCE(SUM(ua.impression_count), 0) AS impressions,
+        COALESCE(SUM(ua.click_count), 0) AS clicks,
+        COALESCE(SUM($financialExpression), 0) AS spend
     FROM ad_spaces ads
-    LEFT JOIN user_advertisements ua ON ads.space_id = ua.target_space_id AND ua.status = 'active'
+    LEFT JOIN user_advertisements ua
+        ON ua.target_space_id = ads.space_id
+       AND ua.placement_type = 'targeted'
     GROUP BY ads.id
     ORDER BY ads.page_location, ads.display_order";
-$spaces_stmt = $db->prepare($spaces_query);
-$spaces_stmt->execute();
-$ad_spaces = $spaces_stmt->fetchAll(PDO::FETCH_ASSOC);
+$spacesStmt = $db->prepare($spacesQuery);
+$spacesStmt->execute();
+$ad_spaces = $spacesStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get overall statistics
-$stats_query = "SELECT 
-    COUNT(*) as total_spaces,
-    SUM(CASE WHEN is_enabled = 1 THEN 1 ELSE 0 END) as enabled_spaces,
-    (SELECT COUNT(*) FROM user_advertisements WHERE status = 'active') as total_active_ads,
-    (SELECT SUM(impression_count) FROM user_advertisements) as total_impressions,
-    (SELECT SUM(click_count) FROM user_advertisements) as total_clicks,
-    (SELECT SUM(cost_paid + premium_cost) FROM user_advertisements) as total_revenue
-    FROM ad_spaces";
-$stats_stmt = $db->prepare($stats_query);
-$stats_stmt->execute();
-$stats = $stats_stmt->fetch(PDO::FETCH_ASSOC);
+$totalSpaces = count($ad_spaces);
+$enabledSpaces = count(array_filter($ad_spaces, static fn($space) => (int) $space['is_enabled'] === 1));
+$premiumOnlySpaces = count(array_filter($ad_spaces, static fn($space) => (int) $space['is_premium_only'] === 1));
+$totalRotation = array_sum(array_map(static fn($space) => (int) $space['max_ads_rotation'], $ad_spaces));
+$averageMultiplier = $totalSpaces > 0 ? array_sum(array_map(static fn($space) => (float) $space['base_price_multiplier'], $ad_spaces)) / $totalSpaces : 0;
+
+$pageLocations = array_unique(array_map(static fn($space) => $space['page_location'], $ad_spaces));
+$positions = array_unique(array_map(static fn($space) => $space['position'], $ad_spaces));
+$adTypeCounts = [
+    'banner' => count(array_filter($ad_spaces, static fn($space) => $space['ad_type'] === 'banner')),
+    'text' => count(array_filter($ad_spaces, static fn($space) => $space['ad_type'] === 'text')),
+    'both' => count(array_filter($ad_spaces, static fn($space) => $space['ad_type'] === 'both')),
+];
+
+$pageSummary = [];
+foreach ($ad_spaces as $space) {
+    $pageSummary[$space['page_location']]['count'] = ($pageSummary[$space['page_location']]['count'] ?? 0) + 1;
+    $pageSummary[$space['page_location']]['campaigns'] = ($pageSummary[$space['page_location']]['campaigns'] ?? 0) + (int) $space['campaign_count'];
+}
+ksort($pageSummary);
+
+function dimensionLabel($width, $height): string
+{
+    $width = (int) $width;
+    $height = (int) $height;
+
+    if ($width === 0 || $height === 0) {
+        return 'Responsive Flex';
+    }
+
+    return $width . 'x' . $height . 'px';
+}
+
+$page_title = 'Ad Spaces Manager - Admin Panel';
+include 'includes/admin_header.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ad Spaces Manager - Admin</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #e2e8f0;
-            line-height: 1.6;
-            min-height: 100vh;
-            padding: 2rem;
-        }
+<div class="container-fluid">
+    <div class="row">
+        <?php include 'includes/admin_sidebar.php'; ?>
 
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .header h1 {
-            font-size: 2rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #3b82f6, #10b981);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: #94a3b8;
-            text-decoration: none;
-            margin-bottom: 2rem;
-            transition: color 0.3s ease;
-        }
-
-        .back-link:hover {
-            color: #3b82f6;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .stat-card {
-            background: rgba(51, 65, 85, 0.6);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(148, 163, 184, 0.1);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            text-align: center;
-        }
-
-        .stat-number {
-            font-size: 2rem;
-            font-weight: 800;
-            background: linear-gradient(135deg, #3b82f6, #10b981);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 0.5rem;
-        }
-
-        .stat-label {
-            font-size: 0.875rem;
-            color: #94a3b8;
-        }
-
-        .section {
-            background: rgba(51, 65, 85, 0.6);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(148, 163, 184, 0.1);
-            border-radius: 1.25rem;
-            padding: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .section h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #f1f5f9;
-            margin-bottom: 1.5rem;
-        }
-
-        .alert {
-            padding: 1rem 1.5rem;
-            border-radius: 0.75rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .alert-success {
-            background: rgba(16, 185, 129, 0.1);
-            border: 1px solid rgba(16, 185, 129, 0.3);
-            color: #10b981;
-        }
-
-        .alert-error {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #ef4444;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        .form-label {
-            display: block;
-            font-weight: 600;
-            color: #f1f5f9;
-            margin-bottom: 0.5rem;
-            font-size: 0.875rem;
-        }
-
-        .form-input,
-        .form-select {
-            width: 100%;
-            padding: 0.75rem;
-            background: rgba(15, 23, 42, 0.7);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 0.5rem;
-            color: #e2e8f0;
-            font-size: 0.875rem;
-        }
-
-        .form-input:focus,
-        .form-select:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 0.75rem;
-            font-weight: 600;
-            text-decoration: none;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.875rem;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: linear-gradient(135deg, #1d4ed8, #1e40af);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
-        }
-
-        .btn-success {
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
-        }
-
-        .btn-sm {
-            padding: 0.5rem 1rem;
-            font-size: 0.75rem;
-        }
-
-        .spaces-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .spaces-table th,
-        .spaces-table td {
-            padding: 1rem;
-            text-align: left;
-            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
-        }
-
-        .spaces-table th {
-            font-weight: 600;
-            color: #94a3b8;
-            font-size: 0.875rem;
-            text-transform: uppercase;
-        }
-
-        .spaces-table td {
-            color: #e2e8f0;
-        }
-
-        .spaces-table tr:hover {
-            background: rgba(59, 130, 246, 0.05);
-        }
-
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0.25rem 0.75rem;
-            border-radius: 2rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-
-        .badge-enabled {
-            background: rgba(16, 185, 129, 0.2);
-            color: #10b981;
-            border: 1px solid rgba(16, 185, 129, 0.3);
-        }
-
-        .badge-disabled {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: rgba(30, 41, 59, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 1rem;
-            padding: 2rem;
-            max-width: 600px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-header h3 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: #f1f5f9;
-        }
-
-        .close-modal {
-            background: none;
-            border: none;
-            color: #94a3b8;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: color 0.3s ease;
-        }
-
-        .close-modal:hover {
-            color: #ef4444;
-        }
-
-        @media (max-width: 768px) {
-            body {
-                padding: 1rem;
-            }
-
-            .spaces-table {
-                font-size: 0.75rem;
-            }
-
-            .spaces-table th,
-            .spaces-table td {
-                padding: 0.5rem;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <a href="dashboard.php" class="back-link">
-            <i class="fas fa-arrow-left"></i>
-            Back to Admin Dashboard
-        </a>
-
-        <div class="header">
-            <h1>Ad Spaces Manager</h1>
-            <button class="btn btn-primary" onclick="openModal('createSpaceModal')">
-                <i class="fas fa-plus"></i>
-                Create New Space
-            </button>
-        </div>
-
-        <?php if ($success_message): ?>
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success_message); ?>
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex flex-wrap flex-md-nowrap align-items-center justify-content-between pt-3 pb-2 mb-3 border-bottom">
+                <div>
+                    <h1 class="h2 mb-0">Ad Spaces Manager</h1>
+                    <p class="text-muted mb-0">Define where ads appear, their dimensions, and how they are prioritised across the site.</p>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="ad-revenue.php" class="btn btn-sm btn-outline-primary"><i class="fas fa-clipboard-check me-1"></i>Campaigns</a>
+                    <a href="ad-control.php" class="btn btn-sm btn-outline-primary"><i class="fas fa-sliders-h me-1"></i>Placement Control</a>
+                    <a href="ad-analytics.php" class="btn btn-sm btn-outline-primary"><i class="fas fa-chart-pie me-1"></i>Analytics</a>
+                </div>
             </div>
-        <?php endif; ?>
 
-        <?php if ($error_message): ?>
-            <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error_message); ?>
-            </div>
-        <?php endif; ?>
+            <?php if ($success_message): ?>
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <?php echo htmlspecialchars($success_message); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <?php endif; ?>
 
-        <!-- Statistics -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-number"><?php echo number_format($stats['total_spaces']); ?></div>
-                <div class="stat-label">Total Spaces</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number"><?php echo number_format($stats['enabled_spaces']); ?></div>
-                <div class="stat-label">Enabled Spaces</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number"><?php echo number_format($stats['total_active_ads']); ?></div>
-                <div class="stat-label">Active Ads</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number"><?php echo number_format($stats['total_impressions']); ?></div>
-                <div class="stat-label">Total Impressions</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number"><?php echo number_format($stats['total_clicks']); ?></div>
-                <div class="stat-label">Total Clicks</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-number">$<?php echo number_format($stats['total_revenue'], 2); ?></div>
-                <div class="stat-label">Total Revenue</div>
-            </div>
-        </div>
+            <?php if ($error_message): ?>
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <?php echo htmlspecialchars($error_message); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            <?php endif; ?>
 
-        <!-- Ad Spaces List -->
-        <div class="section">
-            <h2>Ad Spaces</h2>
-            <table class="spaces-table">
-                <thead>
-                    <tr>
-                        <th>Space ID</th>
-                        <th>Name</th>
-                        <th>Location</th>
-                        <th>Dimensions</th>
-                        <th>Price Multiplier</th>
-                        <th>Active Ads</th>
-                        <th>Impressions</th>
-                        <th>Clicks</th>
-                        <th>Revenue</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($ad_spaces as $space): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($space['space_id']); ?></td>
-                        <td><?php echo htmlspecialchars($space['space_name']); ?></td>
-                        <td><?php echo htmlspecialchars($space['page_location']); ?></td>
-                        <td><?php echo htmlspecialchars($space['dimensions']); ?></td>
-                        <td><?php echo number_format($space['price_multiplier'], 2); ?>x</td>
-                        <td><?php echo number_format($space['active_ads_count']); ?></td>
-                        <td><?php echo number_format($space['total_impressions']); ?></td>
-                        <td><?php echo number_format($space['total_clicks']); ?></td>
-                        <td>$<?php echo number_format($space['total_revenue'], 2); ?></td>
-                        <td>
-                            <?php if ($space['is_enabled']): ?>
-                                <span class="badge badge-enabled">
-                                    <i class="fas fa-check"></i> Enabled
-                                </span>
-                            <?php else: ?>
-                                <span class="badge badge-disabled">
-                                    <i class="fas fa-times"></i> Disabled
-                                </span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <div class="action-buttons">
-                                <form method="POST" style="display: inline;">
-                                    <input type="hidden" name="action" value="toggle_space">
-                                    <input type="hidden" name="space_id" value="<?php echo $space['id']; ?>">
-                                    <input type="hidden" name="is_enabled" value="<?php echo $space['is_enabled'] ? 0 : 1; ?>">
-                                    <button type="submit" class="btn btn-sm <?php echo $space['is_enabled'] ? 'btn-danger' : 'btn-success'; ?>">
-                                        <i class="fas fa-<?php echo $space['is_enabled'] ? 'ban' : 'check'; ?>"></i>
-                                        <?php echo $space['is_enabled'] ? 'Disable' : 'Enable'; ?>
-                                    </button>
-                                </form>
-                                <button class="btn btn-sm btn-primary" onclick="openPricingModal(<?php echo $space['id']; ?>, <?php echo $space['price_multiplier']; ?>)">
-                                    <i class="fas fa-dollar-sign"></i>
-                                    Pricing
-                                </button>
+            <div class="row mb-4 g-3">
+                <div class="col-xl-3 col-md-6">
+                    <div class="card border-left-primary shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="text-xs fw-bold text-primary text-uppercase mb-1">Total Spaces</div>
+                            <div class="h5 mb-0 fw-bold text-gray-800"><?php echo number_format($totalSpaces); ?></div>
+                            <small class="text-muted">Enabled: <?php echo number_format($enabledSpaces); ?> · Premium: <?php echo number_format($premiumOnlySpaces); ?></small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card border-left-success shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="text-xs fw-bold text-success text-uppercase mb-1">Average Multiplier</div>
+                            <div class="h5 mb-0 fw-bold text-gray-800"><?php echo number_format($averageMultiplier, 2); ?>x</div>
+                            <small class="text-muted">Rotation capacity: <?php echo number_format($totalRotation); ?></small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card border-left-info shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="text-xs fw-bold text-info text-uppercase mb-1">Placement Types</div>
+                            <div class="h5 mb-0 fw-bold text-gray-800">Banner <?php echo $adTypeCounts['banner']; ?> · Text <?php echo $adTypeCounts['text']; ?></div>
+                            <small class="text-muted">Hybrid placements: <?php echo $adTypeCounts['both']; ?></small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-md-6">
+                    <div class="card border-left-warning shadow h-100 py-2">
+                        <div class="card-body">
+                            <div class="text-xs fw-bold text-warning text-uppercase mb-1">Page Coverage</div>
+                            <div class="h5 mb-0 fw-bold text-gray-800"><?php echo number_format(count($pageLocations)); ?> pages</div>
+                            <small class="text-muted">Campaign links: <?php echo array_sum(array_column($pageSummary, 'campaigns')); ?></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Create New Ad Space</h5>
+                    <form method="post" class="row g-3">
+                        <input type="hidden" name="action" value="create_space">
+                        <div class="col-md-4">
+                            <label class="form-label">Space ID *</label>
+                            <input type="text" class="form-control" name="space_id" placeholder="homepage_top_banner" required>
+                            <div class="form-text">Used in templates and widgets.</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Space Name *</label>
+                            <input type="text" class="form-control" name="space_name" placeholder="Homepage Top Banner" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ad Type *</label>
+                            <select name="ad_type" class="form-select">
+                                <option value="both">Banner &amp; Text</option>
+                                <option value="banner">Banner Only</option>
+                                <option value="text">Text Only</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Page Location *</label>
+                            <input list="pageLocationsList" class="form-control" name="page_location" placeholder="dashboard" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Position *</label>
+                            <input list="positionList" class="form-control" name="position" placeholder="top" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Base Price Multiplier</label>
+                            <input type="number" step="0.1" min="0.1" class="form-control" name="base_price_multiplier" value="1.0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Width (px)</label>
+                            <input type="number" min="0" class="form-control" name="width" placeholder="728">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Height (px)</label>
+                            <input type="number" min="0" class="form-control" name="height" placeholder="90">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Display Order</label>
+                            <input type="number" class="form-control" name="display_order" value="0">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Max Ads Rotation</label>
+                            <input type="number" min="1" class="form-control" name="max_ads_rotation" value="5">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_premium_only" id="createPremiumOnly">
+                                <label class="form-check-label" for="createPremiumOnly">Restrict to premium visibility campaigns</label>
                             </div>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- Create Space Modal -->
-    <div id="createSpaceModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Create New Ad Space</h3>
-                <button class="close-modal" onclick="closeModal('createSpaceModal')">
-                    <i class="fas fa-times"></i>
-                </button>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-1"></i>Create Space</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <form method="POST">
-                <input type="hidden" name="action" value="create_space">
-                
-                <div class="form-group">
-                    <label class="form-label">Space ID *</label>
-                    <input type="text" name="space_id" class="form-input" required placeholder="e.g., homepage_header">
-                </div>
 
-                <div class="form-group">
-                    <label class="form-label">Space Name *</label>
-                    <input type="text" name="space_name" class="form-input" required placeholder="e.g., Homepage Header Banner">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Page Location *</label>
-                    <input type="text" name="page_location" class="form-input" required placeholder="e.g., homepage, sidebar, footer">
-                </div>
-
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Width (px)</label>
-                        <input type="number" name="width" class="form-input" placeholder="728">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Height (px)</label>
-                        <input type="number" name="height" class="form-input" placeholder="90">
+            <div class="row g-3 mb-4">
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3">Page Coverage Overview</h5>
+                            <div class="list-group list-group-flush">
+                                <?php foreach ($pageSummary as $location => $summary): ?>
+                                    <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div class="fw-semibold text-secondary text-uppercase small mb-1"><?php echo htmlspecialchars($location); ?></div>
+                                            <div class="text-muted small">Spaces: <?php echo number_format($summary['count']); ?> · Campaign links: <?php echo number_format($summary['campaigns']); ?></div>
+                                        </div>
+                                        <span class="badge bg-primary-subtle text-primary"><?php echo number_format($summary['count']); ?></span>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <div class="form-group">
-                    <label class="form-label">Dimensions Label</label>
-                    <input type="text" name="dimensions" class="form-input" placeholder="728x90">
-                </div>
-
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Price Multiplier *</label>
-                        <input type="number" name="price_multiplier" class="form-input" step="0.1" value="1.0" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Max Ads in Rotation</label>
-                        <input type="number" name="max_ads_rotation" class="form-input" value="5">
-                    </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Display Order</label>
-                        <input type="number" name="display_order" class="form-input" value="0">
+                <div class="col-lg-6">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3">Helpful Tips</h5>
+                            <ul class="list-unstyled text-muted small mb-0">
+                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Use responsive dimensions (leave width/height blank) to host flexible widgets.</li>
+                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Premium-only slots pair well with CPC/CPM campaigns using higher bids.</li>
+                                <li class="mb-2"><i class="fas fa-check-circle text-success me-2"></i>Balance rotation caps to keep exposure fair across targeted and general campaigns.</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <button type="submit" class="btn btn-primary" style="width: 100%;">
-                    <i class="fas fa-plus"></i>
-                    Create Ad Space
-                </button>
+            <div class="card shadow-sm mb-5">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">Existing Ad Spaces</h5>
+                        <span class="text-muted small">Click edit to adjust placement settings.</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table align-middle">
+                            <thead class="table-light">
+                            <tr>
+                                <th scope="col">Space</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Dimensions</th>
+                                <th scope="col">Multiplier</th>
+                                <th scope="col">Campaigns</th>
+                                <th scope="col">Performance</th>
+                                <th scope="col">Status</th>
+                                <th scope="col" class="text-end">Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($ad_spaces as $space): ?>
+                                <?php
+                                $typeBadge = $space['ad_type'] === 'both'
+                                    ? '<span class="badge bg-primary-subtle text-primary me-1">Banner</span><span class="badge bg-info-subtle text-info">Text</span>'
+                                    : '<span class="badge bg-primary-subtle text-primary">' . ucfirst($space['ad_type']) . '</span>';
+                                $statusBadges = [];
+                                $statusBadges[] = $space['is_enabled'] ? '<span class="badge bg-success-subtle text-success">Enabled</span>' : '<span class="badge bg-danger-subtle text-danger">Disabled</span>';
+                                if ((int) $space['is_premium_only'] === 1) {
+                                    $statusBadges[] = '<span class="badge bg-warning-subtle text-warning">Premium</span>';
+                                }
+                                ?>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold text-dark"><?php echo htmlspecialchars($space['space_name']); ?></div>
+                                        <div class="text-muted small">ID: <?php echo htmlspecialchars($space['space_id']); ?> · <?php echo htmlspecialchars($space['page_location']); ?> · <?php echo htmlspecialchars($space['position']); ?></div>
+                                    </td>
+                                    <td><?php echo $typeBadge; ?></td>
+                                    <td><?php echo dimensionLabel($space['width'], $space['height']); ?></td>
+                                    <td><?php echo number_format($space['base_price_multiplier'], 2); ?>x<br><small class="text-muted">Rotation: <?php echo (int) $space['max_ads_rotation']; ?> · Order: <?php echo (int) $space['display_order']; ?></small></td>
+                                    <td>
+                                        <div class="fw-semibold text-dark"><?php echo number_format($space['campaign_count']); ?></div>
+                                        <div class="text-muted small">Spend: $<?php echo number_format($space['spend'], 2); ?></div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark"><?php echo number_format($space['impressions']); ?> views</div>
+                                        <div class="text-muted small">Clicks: <?php echo number_format($space['clicks']); ?></div>
+                                    </td>
+                                    <td><?php echo implode(' ', $statusBadges); ?></td>
+                                    <td class="text-end">
+                                        <form method="post" class="d-inline">
+                                            <input type="hidden" name="action" value="toggle_space">
+                                            <input type="hidden" name="space_id" value="<?php echo (int) $space['id']; ?>">
+                                            <input type="hidden" name="is_enabled" value="<?php echo $space['is_enabled'] ? 0 : 1; ?>">
+                                            <button type="submit" class="btn btn-sm <?php echo $space['is_enabled'] ? 'btn-outline-danger' : 'btn-outline-success'; ?> me-2"><i class="fas <?php echo $space['is_enabled'] ? 'fa-power-off' : 'fa-play'; ?>"></i></button>
+                                        </form>
+                                        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#spaceEditModal<?php echo (int) $space['id']; ?>"><i class="fas fa-pen"></i></button>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<datalist id="pageLocationsList">
+    <?php foreach ($pageLocations as $location): ?>
+        <option value="<?php echo htmlspecialchars($location); ?>">
+    <?php endforeach; ?>
+</datalist>
+<datalist id="positionList">
+    <?php foreach ($positions as $position): ?>
+        <option value="<?php echo htmlspecialchars($position); ?>">
+    <?php endforeach; ?>
+</datalist>
+
+<?php foreach ($ad_spaces as $space): ?>
+<div class="modal fade" id="spaceEditModal<?php echo (int) $space['id']; ?>" tabindex="-1" aria-labelledby="spaceEditLabel<?php echo (int) $space['id']; ?>" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="post">
+                <input type="hidden" name="action" value="update_space">
+                <input type="hidden" name="space_id" value="<?php echo (int) $space['id']; ?>">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="spaceEditLabel<?php echo (int) $space['id']; ?>">Edit <?php echo htmlspecialchars($space['space_name']); ?></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Space Name</label>
+                            <input type="text" class="form-control" name="space_name" value="<?php echo htmlspecialchars($space['space_name']); ?>" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ad Type</label>
+                            <select name="ad_type" class="form-select">
+                                <option value="both" <?php echo $space['ad_type'] === 'both' ? 'selected' : ''; ?>>Banner &amp; Text</option>
+                                <option value="banner" <?php echo $space['ad_type'] === 'banner' ? 'selected' : ''; ?>>Banner Only</option>
+                                <option value="text" <?php echo $space['ad_type'] === 'text' ? 'selected' : ''; ?>>Text Only</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Page Location</label>
+                            <input type="text" class="form-control" name="page_location" value="<?php echo htmlspecialchars($space['page_location']); ?>" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Position</label>
+                            <input type="text" class="form-control" name="position" value="<?php echo htmlspecialchars($space['position']); ?>" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Width (px)</label>
+                            <input type="number" min="0" class="form-control" name="width" value="<?php echo htmlspecialchars($space['width']); ?>" placeholder="Leave blank for responsive">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Height (px)</label>
+                            <input type="number" min="0" class="form-control" name="height" value="<?php echo htmlspecialchars($space['height']); ?>" placeholder="Leave blank for responsive">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Base Price Multiplier</label>
+                            <input type="number" step="0.1" min="0.1" class="form-control" name="base_price_multiplier" value="<?php echo htmlspecialchars($space['base_price_multiplier']); ?>">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Display Order</label>
+                            <input type="number" class="form-control" name="display_order" value="<?php echo htmlspecialchars($space['display_order']); ?>">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Max Ads Rotation</label>
+                            <input type="number" min="1" class="form-control" name="max_ads_rotation" value="<?php echo htmlspecialchars($space['max_ads_rotation']); ?>">
+                        </div>
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" value="1" id="modalPremiumOnly<?php echo (int) $space['id']; ?>" name="is_premium_only" <?php echo (int) $space['is_premium_only'] === 1 ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="modalPremiumOnly<?php echo (int) $space['id']; ?>">Restrict to premium campaigns</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
             </form>
         </div>
     </div>
+</div>
+<?php endforeach; ?>
 
-    <!-- Pricing Modal -->
-    <div id="pricingModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Update Pricing</h3>
-                <button class="close-modal" onclick="closeModal('pricingModal')">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <form method="POST">
-                <input type="hidden" name="action" value="update_pricing">
-                <input type="hidden" name="space_id" id="pricingSpaceId">
-                
-                <div class="form-group">
-                    <label class="form-label">Price Multiplier *</label>
-                    <input type="number" name="price_multiplier" id="pricingMultiplier" class="form-input" step="0.1" required>
-                    <p style="color: #94a3b8; font-size: 0.875rem; margin-top: 0.5rem;">
-                        Base prices will be multiplied by this value. 1.0 = standard pricing, 2.0 = double price, 0.5 = half price.
-                    </p>
-                </div>
-
-                <button type="submit" class="btn btn-primary" style="width: 100%;">
-                    <i class="fas fa-save"></i>
-                    Update Pricing
-                </button>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        function openModal(modalId) {
-            document.getElementById(modalId).classList.add('active');
-        }
-
-        function closeModal(modalId) {
-            document.getElementById(modalId).classList.remove('active');
-        }
-
-        function openPricingModal(spaceId, currentMultiplier) {
-            document.getElementById('pricingSpaceId').value = spaceId;
-            document.getElementById('pricingMultiplier').value = currentMultiplier;
-            openModal('pricingModal');
-        }
-
-        // Close modal when clicking outside
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    this.classList.remove('active');
-                }
-            });
-        });
-    </script>
-</body>
-</html>
+<?php include 'includes/admin_footer.php'; ?>
