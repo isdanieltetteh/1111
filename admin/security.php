@@ -23,33 +23,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     switch ($action) {
         case 'block_ip':
-            $ip_address = trim($_POST['ip_address']);
-            $reason = trim($_POST['reason']);
-            $duration_hours = intval($_POST['duration_hours']);
-            $is_permanent = isset($_POST['is_permanent']);
-            
-            if (empty($ip_address) || empty($reason)) {
-                $error_message = 'IP address and reason are required';
-                break;
-            }
-            
-            $expires_at = $is_permanent ? null : date('Y-m-d H:i:s', strtotime("+{$duration_hours} hours"));
-            
-            $block_query = "INSERT INTO blocked_ips (ip_address, reason, blocked_by, expires_at, is_permanent) 
-                           VALUES (:ip_address, :reason, :admin_id, :expires_at, :is_permanent)";
-            $block_stmt = $db->prepare($block_query);
-            $block_stmt->bindParam(':ip_address', $ip_address);
-            $block_stmt->bindParam(':reason', $reason);
-            $block_stmt->bindParam(':admin_id', $_SESSION['user_id']);
-            $block_stmt->bindParam(':expires_at', $expires_at);
-            $block_stmt->bindParam(':is_permanent', $is_permanent);
-            
-            if ($block_stmt->execute()) {
-                $success_message = 'IP address blocked successfully!';
-            } else {
-                $error_message = 'Error blocking IP address';
-            }
-            break;
+    $ip_address = trim($_POST['ip_address']);
+    $reason = trim($_POST['reason']);
+    $duration_hours = intval($_POST['duration_hours'] ?? 0); // Fallback to 0 if hidden/not posted
+    $is_permanent = isset($_POST['is_permanent']) ? 1 : 0; // Explicit 1/0
+    
+    if (empty($ip_address) || empty($reason)) {
+        $error_message = 'IP address and reason are required';
+        break;
+    }
+    
+    // Only use duration if not permanent; ensure positive hours
+    $expires_at = ($is_permanent === 1) ? null : date('Y-m-d H:i:s', strtotime("+{$duration_hours} hours"));
+    
+    $block_query = "INSERT INTO blocked_ips (ip_address, reason, blocked_by, expires_at, is_permanent, created_at) 
+                   VALUES (:ip_address, :reason, :admin_id, :expires_at, :is_permanent, NOW())";
+    $block_stmt = $db->prepare($block_query);
+    $block_stmt->bindParam(':ip_address', $ip_address);
+    $block_stmt->bindParam(':reason', $reason);
+    $block_stmt->bindParam(':admin_id', $_SESSION['user_id'], PDO::PARAM_INT);
+    $block_stmt->bindParam(':expires_at', $expires_at);
+    $block_stmt->bindParam(':is_permanent', $is_permanent, PDO::PARAM_INT);
+    
+    if ($block_stmt->execute()) {
+        $success_message = 'IP address blocked successfully!';
+    } else {
+        $error_message = 'Error blocking IP address';
+    }
+    break;
             
         case 'unblock_ip':
             $block_id = intval($_POST['block_id']);
