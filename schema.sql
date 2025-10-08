@@ -38,15 +38,6 @@ CREATE TABLE `admin_action_logs` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `admin_action_logs`
---
-
-INSERT INTO `admin_action_logs` (`id`, `admin_id`, `action`, `target_type`, `target_id`, `details`, `ip_address`, `created_at`) VALUES
-(1, 28, 'sponsored_site', 'site', 66, '{\"sponsored\":1,\"until\":\"2025-11-01 04:51:35\"}', '102.176.75.94', '2025-10-02 04:51:35'),
-(2, 28, 'sponsored_site', 'site', 63, '{\"sponsored\":1,\"until\":\"2025-11-01 04:51:42\"}', '102.176.75.94', '2025-10-02 04:51:42'),
-(3, 28, 'boosted_site', 'site', 70, '{\"boosted\":1,\"until\":\"2025-11-01 07:47:11\"}', '102.176.75.94', '2025-10-02 07:47:11');
-
 -- --------------------------------------------------------
 
 --
@@ -262,13 +253,6 @@ CREATE TABLE `backlink_tracking` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `backlink_tracking`
---
-
-INSERT INTO `backlink_tracking` (`id`, `site_id`, `backlink_url`, `status`, `last_checked`, `check_count`, `failure_count`, `first_verified`, `last_verified`, `notes`, `created_at`, `updated_at`) VALUES
-(3, 65, 'https://faucetguard.live/', 'pending', '2025-10-02 04:30:41', 0, 0, NULL, NULL, NULL, '2025-10-02 04:30:41', '2025-10-02 04:30:41');
 
 -- --------------------------------------------------------
 
@@ -609,22 +593,6 @@ CREATE TABLE `points_transactions` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `points_transactions`
---
-
-INSERT INTO `points_transactions` (`id`, `user_id`, `points`, `type`, `description`, `reference_id`, `reference_type`, `created_at`) VALUES
-(65, 28, 25, 'earned', 'Site approved by admin', 65, 'submission', '2025-10-02 04:31:50'),
-(66, 28, 1, 'earned', 'Voted on site', 63, 'vote', '2025-10-02 04:38:26'),
-(67, 28, 1, 'earned', 'Voted on site', 70, 'vote', '2025-10-02 07:03:09'),
-(68, 28, 1, 'earned', 'Voted on site', 73, 'vote', '2025-10-02 07:45:23'),
-(69, 29, 5, 'earned', 'Review posted', 63, 'review', '2025-10-02 07:59:34'),
-(70, 29, 1, 'earned', 'Voted on site', 63, 'vote', '2025-10-02 07:59:38'),
-(71, 28, 3, 'earned', 'Reply to review', 6, 'reply', '2025-10-02 08:01:01'),
-(72, 28, 3, 'earned', 'Reply to review', 6, 'reply', '2025-10-02 08:14:10'),
-(73, 28, 1, 'earned', 'Voted on review', 6, 'vote', '2025-10-02 08:22:20'),
-(74, 28, 1, 'earned', 'Voted on review', 6, 'vote', '2025-10-02 09:55:09');
-
 -- --------------------------------------------------------
 
 --
@@ -811,13 +779,6 @@ CREATE TABLE `reviews` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `reviews`
---
-
-INSERT INTO `reviews` (`id`, `site_id`, `user_id`, `rating`, `comment`, `proof_url`, `proof_image`, `is_scam_report`, `is_highlighted`, `upvotes`, `downvotes`, `is_deleted`, `created_at`, `updated_at`) VALUES
-(6, 63, 29, 5, 'The best faucet to earn BTC, always receive my withdrawal on time', '', NULL, 0, 0, 1, 0, 0, '2025-10-02 07:59:34', '2025-10-02 09:55:09');
-
 -- --------------------------------------------------------
 
 --
@@ -837,13 +798,6 @@ CREATE TABLE `review_replies` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Stores user replies to reviews with threading support';
-
---
--- Dumping data for table `review_replies`
---
-
-INSERT INTO `review_replies` (`id`, `review_id`, `user_id`, `parent_reply_id`, `content`, `upvotes`, `downvotes`, `is_deleted`, `is_highlighted`, `created_at`, `updated_at`) VALUES
-(5, 6, 28, NULL, 'Am trying it because of your review', 0, 0, 0, 0, '2025-10-02 08:01:01', '2025-10-02 08:01:01');
 
 -- --------------------------------------------------------
 
@@ -904,23 +858,6 @@ CREATE TABLE `secure_visit_tokens` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `secure_visit_tokens`
---
-
-INSERT INTO `secure_visit_tokens` (`id`, `site_id`, `token`, `user_id`, `ip_address`, `expires_at`, `used_at`, `created_at`) VALUES
-(67, 63, 'cd14ece40c98e9ada0d3754907e618d9f1bae9ba8ce1a9e3ef60ad5e7c85751f', NULL, '102.176.65.85', '2025-10-02 03:01:57', '2025-10-02 02:56:58', '2025-10-02 02:56:57'),
-(68, 64, '93bfb86382223cc6c9e78268f91e0600ca537d0aae832fcdc1635b1f23734a92', NULL, '102.176.75.94', '2025-10-02 04:11:57', '2025-10-02 04:06:57', '2025-10-02 04:06:57'),
-(69, 64, 'cf7aa8dcc58b57ced44a204874d29b2dcd0155810fa944acdc06923883e6fdfe', NULL, '102.176.75.94', '2025-10-02 04:12:40', '2025-10-02 04:07:40', '2025-10-02 04:07:40'),
-(70, 64, '8139f0b90dd4fa0ff30c6e1a8504859b367eb4f82b6b909634976848f92e415f', NULL, '102.176.75.94', '2025-10-02 04:18:51', NULL, '2025-10-02 04:13:51'),
-(71, 64, 'c580960e73ac23b2ea9834425154e701232dbdfab064be44a4b2286a7efb8b64', NULL, '157.55.39.13', '2025-10-02 04:22:15', '2025-10-02 04:17:25', '2025-10-02 04:17:15'),
-(72, 64, '0796ff70a32d0ec1f60a22d474dc2ef4dbb64b6673c695fe7b46121bce90bbf0', NULL, '102.176.75.94', '2025-10-02 04:22:28', '2025-10-02 04:17:28', '2025-10-02 04:17:28'),
-(73, 64, '44d76fd0cb621cc8b3e9bdeae10a4c6a55b5155e218dee8340b1473f8c0a584c', NULL, '102.176.75.94', '2025-10-02 04:28:11', '2025-10-02 04:23:11', '2025-10-02 04:23:11'),
-(74, 64, 'aa5994d0cec93984cccf3c052198a15a207b79639e1320c6cd17d1091ed091ed', NULL, '102.176.75.94', '2025-10-02 04:28:30', '2025-10-02 04:23:30', '2025-10-02 04:23:30'),
-(75, 65, '12bc85151edc4cbd3c3f5e3e0c15c56fbbb719c9e66dfdee24d8a99cdd7d73db', NULL, '102.176.75.94', '2025-10-02 04:37:21', '2025-10-02 04:32:21', '2025-10-02 04:32:21'),
-(76, 63, 'a1a4f8bc15f3b006ac78e95158ad68dbfe5550c2208eeb2e827f041f13cca55f', NULL, '102.176.75.94', '2025-10-02 10:49:36', '2025-10-02 10:44:36', '2025-10-02 10:44:36'),
-(77, 66, '1c3dcdd1043031227e1196e1ff842703071d1c32202653c0a0d33ced4dadf6bd', NULL, '102.176.75.94', '2025-10-02 11:42:58', '2025-10-02 11:37:58', '2025-10-02 11:37:58');
-
 -- --------------------------------------------------------
 
 --
@@ -936,18 +873,6 @@ CREATE TABLE `security_logs` (
   `risk_level` enum('low','medium','high','critical') DEFAULT 'low',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `security_logs`
---
-
-INSERT INTO `security_logs` (`id`, `ip_address`, `user_id`, `action`, `details`, `risk_level`, `created_at`) VALUES
-(86, '102.176.65.85', 28, 'user_registered', '{\"user_id\":\"28\",\"username\":\"CoinHunter\",\"has_referrer\":false}', 'low', '2025-10-02 02:39:53'),
-(87, '102.176.65.85', 28, 'login_success', '{\"user_id\":\"28\",\"username\":\"CoinHunter\"}', 'low', '2025-10-02 02:40:17'),
-(88, '102.176.75.94', 28, 'login_success', '{\"user_id\":\"28\",\"username\":\"CoinHunter\"}', 'low', '2025-10-02 05:41:56'),
-(89, '102.176.75.94', 29, 'user_registered', '{\"user_id\":\"29\",\"username\":\"Hexa\",\"has_referrer\":false}', 'low', '2025-10-02 07:55:39'),
-(90, '102.176.75.94', 29, 'login_success', '{\"user_id\":\"29\",\"username\":\"Hexa\"}', 'low', '2025-10-02 07:56:22'),
-(91, '102.176.75.94', 28, 'login_success', '{\"user_id\":\"28\",\"username\":\"CoinHunter\"}', 'low', '2025-10-02 19:32:20');
 
 -- --------------------------------------------------------
 
@@ -1008,25 +933,6 @@ CREATE TABLE `sites` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `sites`
---
-
-INSERT INTO `sites` (`id`, `name`, `url`, `referral_link`, `description`, `category`, `supported_coins`, `logo`, `submitted_by`, `is_approved`, `quality_score`, `submission_notes`, `approved_by`, `status`, `is_featured`, `is_sponsored`, `sponsored_until`, `sponsored_last_shown`, `is_boosted`, `boosted_until`, `boosted_last_shown`, `promotion_rotation_order`, `backlink_url`, `backlink_verified`, `views`, `clicks`, `total_upvotes`, `total_downvotes`, `total_reviews`, `average_rating`, `scam_reports_count`, `total_reviews_for_scam`, `admin_scam_decision`, `is_dead`, `admin_approved_dead`, `consecutive_failures`, `last_health_check`, `created_at`, `updated_at`) VALUES
-(63, 'adBTC', 'https://r.adbtc.top/1121925', '', 'Earn money for watching websites', 'faucet', 'BTC, USDT', '/assets/images/logos/adbtc.ico', 28, 1, 50, NULL, NULL, 'paying', 0, 1, '2025-11-01 04:51:42', '2025-10-02 20:39:16', 0, NULL, NULL, 0, '', 0, 48, 2, 2, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 02:50:43', '2025-10-02 20:39:16'),
-(64, 'Fc.lc', 'https://fc.lc/ref/100047732308306534495', '', 'With Fc.lc you can shorten your URls and earn money while you’re at it. Create and share your short URLs with our generator and start earning money from your home!', 'url_shortener', 'BTC, USDT', 'assets/images/logos/logo_1759376345_68ddf3d9894b2.png', 28, 1, 50, NULL, NULL, 'paying', 0, 0, NULL, NULL, 0, NULL, NULL, 0, '', 0, 12, 6, 0, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 03:39:05', '2025-10-02 16:30:08'),
-(65, 'Exe io', 'https://exe.io/ref/Kingzabbu', 'https://exe.io/ref/Kingzabbu', 'exe.io makes you shorten and track your links. In addition, it rewards you for every single link at the same time.', 'url_shortener', 'BTC, USDT', 'assets/images/logos/logo_1759379441_68ddfff11d0b2.ico', 28, 1, 50, NULL, 28, 'paying', 0, 0, NULL, NULL, 0, NULL, NULL, 0, 'https://faucetguard.live/', 0, 7, 1, 0, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 04:30:41', '2025-10-02 07:55:03'),
-(66, 'Vie Faucet', 'https://viefaucet.com?r=62d5d5aef6ee210e76650e53', '', 'Vie Faucet is a website where you can claim free cryptocurrencies like Bitcoin, Litecoin, PEPE, Dogecoin, Shiba, Solana with faucet, shortlinks, offers, ptc.', 'faucet', 'BTC, USDT, LTC, BNB, LTC, ETH', 'assets/images/logos/logo_1759380680_68de04c8ad19d.ico', 28, 1, 50, NULL, NULL, 'paying', 0, 1, '2025-11-01 04:51:35', '2025-10-02 20:39:16', 0, NULL, NULL, 0, '', 0, 8, 1, 0, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 04:51:20', '2025-10-02 20:39:16'),
-(67, 'Coinpayu', 'https://www.coinpayu.com/?r=WinUrge', '', 'Earn rewards effortlessly', 'faucet', 'BTC, LTC, BNB, DOGE, SOL', 'assets/images/logos/logo_1759383926_68de11763c1d9.ico', 28, 1, 50, NULL, NULL, 'paying', 0, 0, NULL, NULL, 0, NULL, NULL, 0, '', 0, 0, 0, 0, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 05:45:26', '2025-10-02 05:45:26'),
-(68, 'Fire Faucet', 'https://firefaucet.win/ref/247425', '', 'The Best Auto Faucet, With 7+ years of experience & over a million users, Fire Faucet is your trusted choice for free crypto & gift cards. Auto-claim, complete tasks, and get paid!', 'faucet', 'BTC, LTC, BNB, DOGE, TRL, ZEC, DGB, NANA, ZMR, ADA, ETH', 'assets/images/logos/logo_1759385448_68de176874326.png', 28, 1, 50, NULL, NULL, 'paying', 0, 0, NULL, NULL, 0, NULL, NULL, 0, '', 0, 0, 0, 0, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 06:10:48', '2025-10-02 06:10:48'),
-(69, 'BTCadSpace', 'https://btcadspace.com/ref/Kingzabbu', '', 'Earn crypto coins with multiple ways. Cheap website promotion with real crypto users. Create your ad and target crypto audience.', 'faucet', 'BTC', 'assets/images/logos/logo_1759386727_68de1c67dc0f8.ico', 28, 1, 50, NULL, NULL, 'paying', 0, 0, NULL, NULL, 0, NULL, NULL, 0, '', 0, 0, 0, 0, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 06:32:07', '2025-10-02 06:32:34'),
-(70, 'Dutch Corp', 'https://autofaucet.dutchycorp.space/?r=Kingzabbu', '', 'Start earning cryptocurrency on the best autofaucet out there by doing tasks, offers and surveys, staking, faucet, shortlinks, PTC, mining & more.', 'faucet', 'BTC, LTC, BNB, DOGE, TRL, ZEC, DGB, NANA, ZMR, ADA, ETH', 'assets/images/logos/logo_1759387659_68de200b53b99.png', 28, 1, 50, NULL, NULL, 'paying', 0, 0, NULL, NULL, 1, '2025-11-01 07:47:11', '2025-10-02 20:39:16', 0, '', 0, 6, 0, 1, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 06:43:50', '2025-10-02 20:39:16'),
-(71, 'ClaimClicks', 'https://claimclicks.com/btc/?r=godwin853', '', 'Instant Earn free crypto rewards by completing a few simple steps and receive instant payouts on FaucetPay Microwallet Platform', 'faucet', 'BTC, LTC, BNB, DOGE, XLM, ZEC, DGB, ADA, ETH, XMR', 'assets/images/logos/logo_1759388201_68de2229ebe92.ico', 28, 1, 50, NULL, NULL, 'paying', 0, 0, NULL, NULL, 0, NULL, NULL, 0, '', 0, 0, 0, 0, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 06:56:41', '2025-10-02 06:56:41'),
-(72, 'AutoFaucet', 'https://autofaucet.org/r/Kingzabbu', '', 'One of the oldest faucet websites for earning money online from anywhere. Offers instant withdrawals including Bitcoin, Ethereum, Dogecoin, and more.', 'faucet', 'BTC, LTC, BNB, DOGE, XLM, ZEC, DGB, ADA, ETH, XMR', 'assets/images/logos/logo_1759388706_68de242291d23.png', 28, 1, 50, NULL, NULL, 'paying', 0, 0, NULL, NULL, 0, NULL, NULL, 0, '', 0, 0, 0, 0, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 07:05:06', '2025-10-02 07:05:06'),
-(73, 'Cointiply', 'https://cointiply.com/r/DpKyA', '', 'Earn free Bitcoin & crypto from the best Bitcoin faucet & crypto rewards platform. Complete offers & surveys, watch videos & play games to earn free Bitcoin.', 'faucet', 'BTC, LTC, DOGE, DASH', 'assets/images/logos/logo_1759390292_68de2a546a142.png', 28, 1, 50, NULL, NULL, 'paying', 0, 0, NULL, NULL, 0, NULL, NULL, 0, '', 0, 5, 0, 1, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 07:31:32', '2025-10-02 07:55:11'),
-(74, 'FreeTrump', 'https://freetrump.in?ref=ZUqYTbTYOC', '', 'FreeTrump.in is free TRUMP Faucet. Earn free Official TRUMP token every hour and multiply your TRUMP up to 4,850x by playing provably fair HI-LO game.', 'faucet', 'TRUMP', 'assets/images/logos/logo_1759390789_68de2c45cd28b.ico', 28, 1, 50, NULL, NULL, 'paying', 0, 0, NULL, NULL, 0, NULL, NULL, 0, '', 0, 0, 0, 0, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 07:39:49', '2025-10-02 07:39:49'),
-(75, 'FREESHIB', 'https://freeshib.in?ref=_M3LDEhRBA', '', 'FreeShib.in is free Shiba Faucet. Earn free Shiba Inu token every hour and multiply your Shiba token up to 4,750x by playing provably fair HI-LO game.', 'faucet', 'SHIB', 'assets/images/logos/logo_1759391077_68de2d65a5940.ico', 28, 1, 50, NULL, NULL, 'paying', 0, 0, NULL, NULL, 0, NULL, NULL, 0, '', 0, 0, 0, 0, 0, 0, 0.00, 0, 0, 0, 0, 0, 0, NULL, '2025-10-02 07:44:37', '2025-10-02 07:44:37');
 
 -- --------------------------------------------------------
 
@@ -1093,22 +999,6 @@ CREATE TABLE `site_clicks` (
   `clicked_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `site_clicks`
---
-
-INSERT INTO `site_clicks` (`id`, `site_id`, `ip_address`, `user_agent`, `clicked_at`) VALUES
-(63, 63, '102.176.65.85', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-10-02 02:56:58'),
-(64, 64, '102.176.75.94', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-10-02 04:06:57'),
-(65, 64, '102.176.75.94', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-10-02 04:07:40'),
-(66, 64, '157.55.39.13', 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm) Chrome/116.0.1938.76 Safari/537.36', '2025-10-02 04:17:25'),
-(67, 64, '102.176.75.94', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-10-02 04:17:28'),
-(68, 64, '102.176.75.94', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-10-02 04:23:11'),
-(69, 64, '102.176.75.94', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-10-02 04:23:30'),
-(70, 65, '102.176.75.94', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-10-02 04:32:21'),
-(71, 63, '102.176.75.94', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-10-02 10:44:36'),
-(72, 66, '102.176.75.94', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0', '2025-10-02 11:37:58');
-
 -- --------------------------------------------------------
 
 --
@@ -1138,13 +1028,6 @@ CREATE TABLE `site_features` (
   `expires_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `site_features`
---
-
-INSERT INTO `site_features` (`id`, `site_id`, `feature_type`, `is_active`, `expires_at`, `created_at`) VALUES
-(6, 65, 'referral_link', 1, NULL, '2025-10-02 04:30:41');
 
 -- --------------------------------------------------------
 
@@ -1324,14 +1207,6 @@ CREATE TABLE `users` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `users`
---
-
-INSERT INTO `users` (`id`, `username`, `email`, `password`, `avatar`, `reputation_points`, `level_id`, `active_badge_id`, `is_admin`, `is_moderator`, `is_banned`, `ban_reason`, `email_notifications`, `last_active`, `last_login`, `last_ip`, `total_reviews`, `total_upvotes`, `total_submissions`, `credits`, `referred_by`, `referral_code`, `created_at`, `updated_at`) VALUES
-(28, 'CoinHunter', 'kingzabbu@gmail.com', '$2y$10$jdo1q7NSnsrvLzUjKhzD6.rX9whVy0Xj3qXeq4A9xui6zoFmFNf5m', 'assets/images/default-avatar.png', 802, NULL, 5, 1, 0, 0, NULL, 1, '2025-10-02 20:39:09', '2025-10-02 19:32:20', '102.176.75.94', 0, 0, 0, 485.00, NULL, 'coinhunter', '2025-10-02 02:39:53', '2025-10-02 20:39:09'),
-(29, 'Hexa', 'k.ingzabbu@gmail.com', '$2y$10$P695jDMxTSznwDGQ8yc3mOvX3Wq9oiknWcD6Y7X1uVRePTFrK9olW', 'assets/images/default-avatar.png', 12, NULL, NULL, 0, 0, 0, NULL, 1, '2025-10-02 07:56:22', '2025-10-02 07:56:22', '102.176.75.94', 0, 0, 0, 0.00, NULL, 'hexa', '2025-10-02 07:55:39', '2025-10-02 07:59:38');
-
 -- --------------------------------------------------------
 
 --
@@ -1400,19 +1275,6 @@ CREATE TABLE `user_badges` (
   `earned_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `user_badges`
---
-
-INSERT INTO `user_badges` (`id`, `user_id`, `badge_id`, `earned_at`) VALUES
-(31, 28, 1, '2025-10-02 02:40:37'),
-(32, 28, 2, '2025-10-02 08:53:34'),
-(33, 28, 3, '2025-10-02 08:55:17'),
-(34, 28, 12, '2025-10-02 08:55:17'),
-(35, 28, 4, '2025-10-02 08:55:17'),
-(36, 28, 5, '2025-10-02 08:55:17'),
-(37, 28, 6, '2025-10-02 08:55:17');
-
 -- --------------------------------------------------------
 
 --
@@ -1447,14 +1309,6 @@ CREATE TABLE `user_wallets` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `user_wallets`
---
-
-INSERT INTO `user_wallets` (`id`, `user_id`, `deposit_balance`, `points_balance`, `total_deposited`, `total_earned_points`, `total_redeemed_points`, `created_at`, `updated_at`) VALUES
-(34, 28, 0.0000, 36, 0.0000, 36, 0, '2025-10-02 02:39:53', '2025-10-02 09:55:09'),
-(35, 29, 0.0000, 6, 0.0000, 6, 0, '2025-10-02 07:55:39', '2025-10-02 07:59:38');
-
 -- --------------------------------------------------------
 
 --
@@ -1469,17 +1323,6 @@ CREATE TABLE `votes` (
   `vote_type` enum('upvote','downvote') NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `votes`
---
-
-INSERT INTO `votes` (`id`, `user_id`, `site_id`, `review_id`, `vote_type`, `created_at`) VALUES
-(66, 28, 63, NULL, 'upvote', '2025-10-02 04:38:26'),
-(67, 28, 70, NULL, 'upvote', '2025-10-02 07:03:09'),
-(68, 28, 73, NULL, 'upvote', '2025-10-02 07:45:23'),
-(69, 29, 63, NULL, 'upvote', '2025-10-02 07:59:38'),
-(71, 28, NULL, 6, 'upvote', '2025-10-02 09:55:09');
 
 -- --------------------------------------------------------
 
@@ -2189,7 +2032,7 @@ ALTER TABLE `withdrawal_requests`
 -- AUTO_INCREMENT for table `admin_action_logs`
 --
 ALTER TABLE `admin_action_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `ad_clicks`
@@ -2231,19 +2074,19 @@ ALTER TABLE `ad_space_assignments`
 -- AUTO_INCREMENT for table `ad_transactions`
 --
 ALTER TABLE `ad_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `automated_notifications`
 --
 ALTER TABLE `automated_notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `backlink_tracking`
 --
 ALTER TABLE `backlink_tracking`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `blocked_ips`
@@ -2255,31 +2098,31 @@ ALTER TABLE `blocked_ips`
 -- AUTO_INCREMENT for table `coupons`
 --
 ALTER TABLE `coupons`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `coupon_redemptions`
 --
 ALTER TABLE `coupon_redemptions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `coupon_security_logs`
 --
 ALTER TABLE `coupon_security_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `credit_transactions`
 --
 ALTER TABLE `credit_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `deposit_transactions`
 --
 ALTER TABLE `deposit_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `email_campaigns`
@@ -2303,7 +2146,7 @@ ALTER TABLE `feature_pricing`
 -- AUTO_INCREMENT for table `ip_registrations`
 --
 ALTER TABLE `ip_registrations`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `levels`
@@ -2315,13 +2158,13 @@ ALTER TABLE `levels`
 -- AUTO_INCREMENT for table `newsletter_subscriptions`
 --
 ALTER TABLE `newsletter_subscriptions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `notification_queue`
@@ -2339,13 +2182,13 @@ ALTER TABLE `password_reset_tokens`
 -- AUTO_INCREMENT for table `points_transactions`
 --
 ALTER TABLE `points_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=75;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `promotion_pricing`
 --
 ALTER TABLE `promotion_pricing`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `redirect_ads`
@@ -2387,19 +2230,19 @@ ALTER TABLE `referral_tiers`
 -- AUTO_INCREMENT for table `remember_tokens`
 --
 ALTER TABLE `remember_tokens`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `reviews`
 --
 ALTER TABLE `reviews`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `review_replies`
 --
 ALTER TABLE `review_replies`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `review_reply_votes`
@@ -2417,19 +2260,19 @@ ALTER TABLE `scam_reports_log`
 -- AUTO_INCREMENT for table `secure_visit_tokens`
 --
 ALTER TABLE `secure_visit_tokens`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `security_logs`
 --
 ALTER TABLE `security_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=92;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `sites`
 --
 ALTER TABLE `sites`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=76;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `site_ads`
@@ -2447,7 +2290,7 @@ ALTER TABLE `site_categories`
 -- AUTO_INCREMENT for table `site_clicks`
 --
 ALTER TABLE `site_clicks`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=73;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `site_faqs`
@@ -2459,19 +2302,19 @@ ALTER TABLE `site_faqs`
 -- AUTO_INCREMENT for table `site_features`
 --
 ALTER TABLE `site_features`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `site_health_checks`
 --
 ALTER TABLE `site_health_checks`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `site_promotions`
 --
 ALTER TABLE `site_promotions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `support_replies`
@@ -2483,7 +2326,7 @@ ALTER TABLE `support_replies`
 -- AUTO_INCREMENT for table `support_tickets`
 --
 ALTER TABLE `support_tickets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `temp_email_domains`
@@ -2495,7 +2338,7 @@ ALTER TABLE `temp_email_domains`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `user_actions`
@@ -2507,13 +2350,13 @@ ALTER TABLE `user_actions`
 -- AUTO_INCREMENT for table `user_advertisements`
 --
 ALTER TABLE `user_advertisements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `user_badges`
 --
 ALTER TABLE `user_badges`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `user_referrals`
@@ -2525,13 +2368,13 @@ ALTER TABLE `user_referrals`
 -- AUTO_INCREMENT for table `user_wallets`
 --
 ALTER TABLE `user_wallets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=36;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `votes`
 --
 ALTER TABLE `votes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `withdrawal_currencies`
@@ -2552,7 +2395,7 @@ ALTER TABLE `withdrawal_requests`
 --
 DROP TABLE IF EXISTS `review_reply_counts`;
 
-CREATE ALGORITHM=UNDEFINED DEFINER=`cpses_mwge22tp9k`@`localhost` SQL SECURITY DEFINER VIEW `review_reply_counts`  AS SELECT `r`.`id` AS `review_id`, count(`rr`.`id`) AS `reply_count`, max(`rr`.`created_at`) AS `last_reply_at` FROM (`reviews` `r` left join `review_replies` `rr` on(`r`.`id` = `rr`.`review_id` and `rr`.`is_deleted` = 0)) GROUP BY `r`.`id` ;
+CREATE VIEW `review_reply_counts`  AS SELECT `r`.`id` AS `review_id`, count(`rr`.`id`) AS `reply_count`, max(`rr`.`created_at`) AS `last_reply_at` FROM (`reviews` `r` left join `review_replies` `rr` on(`r`.`id` = `rr`.`review_id` and `rr`.`is_deleted` = 0)) GROUP BY `r`.`id` ;
 
 --
 -- Constraints for dumped tables
