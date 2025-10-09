@@ -202,7 +202,10 @@ class Auth {
                 'user_id' => $user['id'],
                 'username' => $user['username']
             ], 'low', $user['id']);
-            
+
+            // Ensure badge progress is up to date on login
+            $this->updateUserBadges($user['id']);
+
             return ['success' => true, 'message' => 'Login successful'];
             
         } catch (Exception $e) {
@@ -310,6 +313,9 @@ class Auth {
                 $wallet_manager->addPoints($new_user_id, POINTS_REGISTER, 'earned', 'Welcome bonus for joining');
             }
             
+            // Award starter badges and set an active badge immediately
+            $this->updateUserBadges($new_user_id);
+
             return ['success' => true, 'message' => 'Registration successful'];
             
         } catch (Exception $e) {
@@ -419,14 +425,14 @@ class Auth {
                 $earned_stmt->bindParam(':user_id', $user_id);
                 $earned_stmt->bindParam(':badge_id', $badge['id']);
                 $earned_stmt->execute();
-                
+
                 // Skip if already earned
                 if ($earned_stmt->fetch()) {
                     continue;
                 }
-                
+
                 $meets_requirements = $this->checkBadgeRequirements($badge, $user_stats);
-                
+
                 if ($meets_requirements) {
                     // Award badge
                     $award_query = "INSERT INTO user_badges (user_id, badge_id, earned_at) VALUES (:user_id, :badge_id, NOW())";
@@ -434,11 +440,36 @@ class Auth {
                     $award_stmt->bindParam(':user_id', $user_id);
                     $award_stmt->bindParam(':badge_id', $badge['id']);
                     $award_stmt->execute();
+
                 }
             }
-            
+
+            // Ensure the user has an active badge set
+            $active_badge_query = "SELECT active_badge_id FROM users WHERE id = :user_id";
+            $active_badge_stmt = $this->db->prepare($active_badge_query);
+            $active_badge_stmt->bindParam(':user_id', $user_id);
+            $active_badge_stmt->execute();
+            $current_active_badge = $active_badge_stmt->fetchColumn();
+
+            if (empty($current_active_badge)) {
+                // Find the earliest earned badge to set as active
+                $first_badge_query = "SELECT badge_id FROM user_badges WHERE user_id = :user_id ORDER BY earned_at ASC LIMIT 1";
+                $first_badge_stmt = $this->db->prepare($first_badge_query);
+                $first_badge_stmt->bindParam(':user_id', $user_id);
+                $first_badge_stmt->execute();
+                $first_badge_id = $first_badge_stmt->fetchColumn();
+
+                if ($first_badge_id) {
+                    $set_active_query = "UPDATE users SET active_badge_id = :badge_id WHERE id = :user_id";
+                    $set_active_stmt = $this->db->prepare($set_active_query);
+                    $set_active_stmt->bindParam(':badge_id', $first_badge_id, PDO::PARAM_INT);
+                    $set_active_stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
+                    $set_active_stmt->execute();
+                }
+            }
+
             return true;
-            
+
         } catch (Exception $e) {
             error_log("Update user badges error: " . $e->getMessage());
             return false;

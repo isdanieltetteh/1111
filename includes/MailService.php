@@ -17,6 +17,7 @@ class MailService
     private int $timeout;
     private string $fromEmail;
     private string $fromName;
+    private string $returnPath;
     private bool $allowSelfSigned;
 
     private function __construct()
@@ -30,6 +31,9 @@ class MailService
         $this->fromEmail = defined('SMTP_FROM_EMAIL') ? (string) SMTP_FROM_EMAIL : (defined('SITE_EMAIL') ? SITE_EMAIL : '');
         $this->fromName = defined('SMTP_FROM_NAME') ? (string) SMTP_FROM_NAME : (defined('SITE_NAME') ? SITE_NAME : '');
         $this->allowSelfSigned = defined('SMTP_ALLOW_SELF_SIGNED') ? (bool) SMTP_ALLOW_SELF_SIGNED : false;
+        $this->returnPath = defined('SMTP_RETURN_PATH') && filter_var(SMTP_RETURN_PATH, FILTER_VALIDATE_EMAIL)
+            ? (string) SMTP_RETURN_PATH
+            : $this->fromEmail;
     }
 
     public static function getInstance(): MailService
@@ -93,7 +97,12 @@ class MailService
             $toHeader = implode(', ', array_column($recipientList, 'address'));
             $mailHeaders = $this->flattenHeaders($headers, "\r\n", false);
 
-            if (@mail($toHeader, $subject, $message, $mailHeaders)) {
+            $additionalParameters = '';
+            if ($this->returnPath) {
+                $additionalParameters = '-f' . $this->returnPath;
+            }
+
+            if (@mail($toHeader, $subject, $message, $mailHeaders, $additionalParameters)) {
                 return ['success' => true, 'message' => 'Message sent via PHP mail()'];
             }
 
@@ -145,11 +154,19 @@ class MailService
         $headers['To'] = implode(', ', array_map(fn ($recipient) => $this->formatAddress($recipient['address'], $recipient['name']), $recipients));
         $headers['MIME-Version'] = '1.0';
 
+        $headers['Message-ID'] = $this->generateMessageId();
+        $headers['X-Mailer'] = SITE_NAME . ' Mailer';
+        if (!empty($_SERVER['SERVER_ADDR'])) {
+            $headers['X-Originating-IP'] = '[' . $_SERVER['SERVER_ADDR'] . ']';
+        }
+
         if (!empty($options['reply_to']) && is_array($options['reply_to'])) {
             $reply = $options['reply_to'];
             if (!empty($reply['email']) && filter_var($reply['email'], FILTER_VALIDATE_EMAIL)) {
                 $headers['Reply-To'] = $this->formatAddress($reply['email'], $reply['name'] ?? '');
             }
+        } elseif (!isset($headers['Reply-To'])) {
+            $headers['Reply-To'] = $this->formatAddress($this->fromEmail, $this->fromName);
         }
 
         if ($ccRecipients) {
@@ -163,6 +180,43 @@ class MailService
         $boundary = '=_Boundary_' . md5(uniqid((string) mt_rand(), true));
         $headers['Content-Type'] = 'multipart/alternative; boundary="' . $boundary . '"';
         $headers['_boundary'] = $boundary;
+
+        if (!empty($options['list_unsubscribe'])) {
+            $list = $options['list_unsubscribe'];
+            $list = is_array($list) ? $list : [$list];
+            $formatted = [];
+            foreach ($list as $entry) {
+                $entry = trim((string) $entry);
+                if ($entry === '') {
+                    continue;
+                }
+
+                $entry = preg_replace("/[\r\n]+/", ' ', $entry);
+                if ($entry[0] !== '<') {
+                    $entry = '<' . $entry . '>';
+                }
+                $formatted[] = $entry;
+            }
+
+            if ($formatted) {
+                $headers['List-Unsubscribe'] = implode(', ', $formatted);
+            }
+        }
+
+        if (!empty($options['list_unsubscribe_post'])) {
+            $headers['List-Unsubscribe-Post'] = 'List-Unsubscribe=One-Click';
+        }
+
+        if (!empty($options['custom_headers']) && is_array($options['custom_headers'])) {
+            foreach ($options['custom_headers'] as $name => $value) {
+                $name = trim((string) $name);
+                if ($name === '') {
+                    continue;
+                }
+
+                $headers[$name] = preg_replace("/[\r\n]+/", ' ', (string) $value);
+            }
+        }
 
         return $headers;
     }
@@ -232,7 +286,7 @@ class MailService
             $this->smtpCommand($socket, base64_encode($this->password), 235);
         }
 
-        $fromAddress = $this->extractEmailAddress($headers['From']);
+        $fromAddress = $this->returnPath ?: $this->extractEmailAddress($headers['From']);
         $this->smtpCommand($socket, 'MAIL FROM: <' . $fromAddress . '>', 250);
 
         foreach ($recipients as $recipient) {
@@ -366,6 +420,20 @@ class MailService
         }
 
         return 'localhost';
+    }
+
+    private function getMailDomain(): string
+    {
+        if ($this->fromEmail && strpos($this->fromEmail, '@') !== false) {
+            return substr($this->fromEmail, strrpos($this->fromEmail, '@') + 1);
+        }
+
+        return $this->getServerName();
+    }
+
+    private function generateMessageId(): string
+    {
+        return sprintf('<%s@%s>', bin2hex(random_bytes(16)), $this->getMailDomain());
     }
 
     private function log(string $message): void
