@@ -21,30 +21,60 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         if (isset($_POST['h-captcha-response']) && !empty($_POST['h-captcha-response'])) {
             $captcha_response = $_POST['h-captcha-response'];
-            $secret_key = 'YOUR_HCAPTCHA_SECRET_KEY';
-            
-            $verify_url = 'https://hcaptcha.com/siteverify';
-            $data = [
-                'secret' => $secret_key,
-                'response' => $captcha_response,
-                'remoteip' => $_SERVER['REMOTE_ADDR']
-            ];
-            
-            $options = [
-                'http' => [
-                    'header' => "Content-type: application/x-www-form-urlencoded\r\n",
-                    'method' => 'POST',
-                    'content' => http_build_query($data)
-                ]
-            ];
-            
-            $context = stream_context_create($options);
-            $result = file_get_contents($verify_url, false, $context);
-            $response = json_decode($result, true);
-            
-            $captcha_valid = $response['success'] ?? false;
+            $secret_key = defined('HCAPTCHA_SECRET_KEY') ? HCAPTCHA_SECRET_KEY : '';
+
+            if (!empty($secret_key)) {
+                $verify_url = 'https://hcaptcha.com/siteverify';
+                $payload = [
+                    'secret' => $secret_key,
+                    'response' => $captcha_response,
+                ];
+
+                if (!empty($_SERVER['REMOTE_ADDR'])) {
+                    $payload['remoteip'] = $_SERVER['REMOTE_ADDR'];
+                }
+
+                $result = false;
+
+                if (function_exists('curl_init')) {
+                    $ch = curl_init($verify_url);
+                    curl_setopt_array($ch, [
+                        CURLOPT_POST => true,
+                        CURLOPT_POSTFIELDS => http_build_query($payload),
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_TIMEOUT => 10,
+                        CURLOPT_SSL_VERIFYPEER => true,
+                        CURLOPT_HTTPHEADER => ['Content-Type: application/x-www-form-urlencoded'],
+                    ]);
+
+                    $result = curl_exec($ch);
+
+                    if ($result === false) {
+                        error_log('hCaptcha verification failed: ' . curl_error($ch));
+                    }
+
+                    curl_close($ch);
+                }
+
+                if ($result === false) {
+                    $context = stream_context_create([
+                        'http' => [
+                            'header' => "Content-type: application/x-www-form-urlencoded\r\n",
+                            'method' => 'POST',
+                            'content' => http_build_query($payload)
+                        ]
+                    ]);
+
+                    $result = @file_get_contents($verify_url, false, $context);
+                }
+
+                if ($result !== false) {
+                    $response = json_decode($result, true);
+                    $captcha_valid = $response['success'] ?? false;
+                }
+            }
         }
-        
+
         if (!$captcha_valid) {
             $error_message = 'Please complete the captcha verification';
         } else {
@@ -166,7 +196,7 @@ include 'includes/header.php';
                         </div>
 
                         <div class="d-flex justify-content-center">
-                            <div class="h-captcha" data-sitekey="YOUR_HCAPTCHA_SITE_KEY"></div>
+                            <div class="h-captcha" data-sitekey="<?php echo htmlspecialchars(defined('HCAPTCHA_SITE_KEY') ? HCAPTCHA_SITE_KEY : '', ENT_QUOTES, 'UTF-8'); ?>"></div>
                         </div>
 
                         <button type="submit" class="btn btn-theme btn-gradient w-100">

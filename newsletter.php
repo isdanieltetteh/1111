@@ -1,9 +1,14 @@
 <?php
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/MailService.php';
+require_once __DIR__ . '/includes/newsletter_helpers.php';
+require_once __DIR__ . '/includes/email_template.php';
 
 $database = new Database();
 $db = $database->getConnection();
+
+$mailer = MailService::getInstance();
 
 $success_message = '';
 $error_message = '';
@@ -17,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         if (isset($_POST['h-captcha-response']) && !empty($_POST['h-captcha-response'])) {
             $captcha_response = $_POST['h-captcha-response'];
-            $secret_key = 'YOUR_HCAPTCHA_SECRET_KEY';
+            $secret_key = HCAPTCHA_SECRET_KEY;
             
             $verify_url = 'https://hcaptcha.com/siteverify';
             $data = [
@@ -62,19 +67,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $error_message = 'This email is already subscribed to our newsletter';
                 } else {
                     // Generate verification token
-                    $verification_token = bin2hex(random_bytes(32));
-                    
+                    $verification_token = newsletter_generate_verification_token();
+
                     // Insert subscription
-                    $insert_query = "INSERT INTO newsletter_subscriptions (email, preferences, verification_token) 
-                                   VALUES (:email, :preferences, :verification_token)";
+                    $insert_query = "INSERT INTO newsletter_subscriptions (email, preferences, verification_token, is_active)
+                                   VALUES (:email, :preferences, :verification_token, 0)";
                     $insert_stmt = $db->prepare($insert_query);
                     $insert_stmt->bindParam(':email', $email);
                     $insert_stmt->bindParam(':preferences', json_encode($preferences));
                     $insert_stmt->bindParam(':verification_token', $verification_token);
-                    
+
                     if ($insert_stmt->execute()) {
-                        $success_message = 'Successfully subscribed! Please check your email to verify your subscription.';
-                        // In production, send verification email here
+                        newsletter_send_confirmation_email($mailer, $email, $verification_token);
+
+                        $success_message = 'Successfully subscribed! Please check your email and tap the confirmation button to start receiving updates.';
                     } else {
                         $error_message = 'Error subscribing to newsletter. Please try again.';
                     }

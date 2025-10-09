@@ -3,6 +3,8 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/MailService.php';
+require_once __DIR__ . '/../includes/email_template.php';
+require_once __DIR__ . '/../includes/newsletter_helpers.php';
 
 $auth = new Auth();
 $database = new Database();
@@ -17,17 +19,24 @@ $success_message = '';
 $error_message = '';
 $mailService = MailService::getInstance();
 
+$defaultPreheader = 'Latest insights from ' . SITE_NAME;
+$messageHtml = isset($_POST['message_html']) ? (string) $_POST['message_html'] : email_default_content_html();
+$messageText = isset($_POST['message_text']) ? (string) $_POST['message_text'] : email_default_content_text();
+$preheader = isset($_POST['preheader']) ? trim((string) $_POST['preheader']) : $defaultPreheader;
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     if ($action === 'send_email') {
         $subject = trim((string) ($_POST['subject'] ?? ''));
-        $messageTemplate = trim((string) ($_POST['message'] ?? ''));
+        $messageHtml = (string) ($_POST['message_html'] ?? $messageHtml);
+        $messageText = (string) ($_POST['message_text'] ?? $messageText);
+        $preheader = trim((string) ($_POST['preheader'] ?? $preheader));
         $target = $_POST['target'] ?? 'newsletter';
         $sendType = $_POST['send_type'] ?? 'immediate';
         $sendType = in_array($sendType, ['immediate', 'queue'], true) ? $sendType : 'immediate';
 
-        if ($subject === '' || $messageTemplate === '') {
-            $error_message = 'Subject and message are required.';
+        if ($subject === '' || trim(strip_tags($messageHtml)) === '') {
+            $error_message = 'Subject and email content are required.';
         } else {
             $recipientQuery = '';
             switch ($target) {
@@ -54,31 +63,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$recipients) {
                 $error_message = 'No recipients found for the selected audience.';
             } else {
-                $renderEmail = static function (string $content, string $recipientName): array {
-                    $safeName = htmlspecialchars($recipientName !== '' ? $recipientName : 'there', ENT_QUOTES, 'UTF-8');
-                    $personalised = str_replace(['{{name}}', '{{username}}'], $safeName, $content);
-                    $isLikelyHtml = $personalised !== strip_tags($personalised);
-                    if (!$isLikelyHtml) {
-                        $personalised = nl2br(htmlspecialchars($personalised, ENT_QUOTES, 'UTF-8'));
-                    }
+                $renderEmail = function (string $htmlTemplate, string $textTemplate, string $subjectLine, string $preheaderText, string $recipientName, string $recipientEmail): array {
+                    $displayName = $recipientName !== '' ? $recipientName : 'there';
+                    $context = email_build_context([
+                        'subject' => $subjectLine,
+                        'preheader' => $preheaderText,
+                        'name' => $displayName,
+                        'username' => $displayName,
+                        'unsubscribe_url' => newsletter_unsubscribe_url($recipientEmail),
+                    ]);
 
-                    $html = '<!DOCTYPE html>' .
-                        '<html lang="en"><head><meta charset="UTF-8"><title>' . htmlspecialchars($safeName, ENT_QUOTES, 'UTF-8') . '</title></head>' .
-                        '<body style="margin:0;padding:24px;background-color:#f5f7fa;font-family:Arial,sans-serif;">' .
-                        '<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;box-shadow:0 20px 45px rgba(15,23,42,0.08);">' .
-                        '<h2 style="margin:0 0 12px;font-size:24px;color:#111827;">' . htmlspecialchars(SITE_NAME, ENT_QUOTES, 'UTF-8') . '</h2>' .
-                        '<p style="margin:0 0 24px;font-size:16px;color:#374151;">Hello ' . $safeName . ',</p>' .
-                        '<div style="font-size:15px;line-height:1.6;color:#111827;">' . $personalised . '</div>' .
-                        '<p style="margin:32px 0 0;font-size:14px;color:#6b7280;">Best regards,<br>' . htmlspecialchars(SITE_NAME, ENT_QUOTES, 'UTF-8') . ' Team</p>' .
-                        '</div>' .
-                        '<p style="margin:24px auto 0;text-align:center;font-size:12px;color:#9ca3af;max-width:480px;">You are receiving this email because you have an account on ' . htmlspecialchars(SITE_NAME, ENT_QUOTES, 'UTF-8') . '.</p>' .
-                        '</body></html>';
+                    [$htmlBody, $plainBody] = email_render_bodies($htmlTemplate, $textTemplate, $context, $preheaderText);
 
-                    $plainBody = strip_tags(str_replace(['<br>', '<br/>', '<br />'], PHP_EOL, $personalised));
-                    $plainBody = html_entity_decode($plainBody, ENT_QUOTES, 'UTF-8');
-                    $plainBody = 'Hello ' . ($recipientName !== '' ? $recipientName : 'there') . "\n\n" . trim($plainBody) . "\n\n" . SITE_NAME . ' Team';
-
-                    return [$html, $plainBody];
+                    return [$htmlBody, $plainBody, $context];
                 };
 
                 $db->beginTransaction();
@@ -86,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $campaignStmt = $db->prepare("INSERT INTO email_campaigns (subject, message, target_audience, recipient_count, sent_by) VALUES (:subject, :message, :target, :count, :admin)");
                     $campaignStmt->execute([
                         ':subject' => $subject,
-                        ':message' => $messageTemplate,
+                        ':message' => $messageHtml,
                         ':target' => $target,
                         ':count' => count($recipients),
                         ':admin' => $_SESSION['user_id'] ?? null,
@@ -107,7 +104,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
 
                         $recipientName = trim((string) ($recipient['username'] ?? ''));
-                        [$htmlBody, $plainBody] = $renderEmail($messageTemplate, $recipientName);
+                        [$htmlBody, $plainBody, $context] = $renderEmail($messageHtml, $messageText, $subject, $preheader, $recipientName, $recipientEmail);
+                        $unsubscribeUrl = $context['unsubscribe_url'] ?? newsletter_unsubscribe_url($recipientEmail);
 
                         $queueInsert->execute([
                             ':campaign' => $campaignId,
@@ -127,6 +125,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 [
                                     'text' => $plainBody,
                                     'reply_to' => ['email' => SITE_EMAIL, 'name' => SITE_NAME],
+                                    'list_unsubscribe' => [$unsubscribeUrl, 'mailto:' . SITE_EMAIL],
+                                    'list_unsubscribe_post' => true,
+                                    'custom_headers' => [
+                                        'X-Campaign-ID' => $campaignId,
+                                        'X-Entity-Ref-ID' => $campaignId . ':' . $queueId,
+                                    ],
                                 ]
                             );
 
@@ -532,9 +536,19 @@ $audienceCounts = array_map(static fn ($row) => (int) $row['recipients'], $audie
                         <input type="text" name="subject" class="form-control" placeholder="Campaign subject" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Message</label>
-                        <textarea name="message" class="form-control" rows="8" placeholder="Compose your message. Use {{name}} to personalise." required></textarea>
-                        <small class="text-muted">HTML supported. Use {{name}} or {{username}} to insert the recipient name.</small>
+                        <label class="form-label">Preheader</label>
+                        <input type="text" name="preheader" class="form-control" value="<?php echo htmlspecialchars($preheader, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Short preview text shown next to the subject line">
+                        <small class="text-muted">Keep it under 90 characters. Leave blank to use the default preview copy.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">HTML content</label>
+                        <textarea name="message_html" class="form-control rich-text-editor" rows="12" data-editor="wysiwyg"><?php echo htmlspecialchars($messageHtml, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        <small class="text-muted">Design freely with the editor. Available merge tags: {{name}}, {{username}}, {{site_name}}, {{unsubscribe_url}}.</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Plain text version</label>
+                        <textarea name="message_text" class="form-control" rows="6" placeholder="Optional plain text copy for clients that cannot render HTML."><?php echo htmlspecialchars($messageText, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        <small class="text-muted">Leave empty to automatically generate a text-only fallback.</small>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -564,6 +578,7 @@ $audienceCounts = array_map(static fn ($row) => (int) $row['recipients'], $audie
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.2/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const deliveryCtx = document.getElementById('deliveryTrendChart');
@@ -636,6 +651,27 @@ $audienceCounts = array_map(static fn ($row) => (int) $row['recipients'], $audie
                             position: 'bottom'
                         }
                     }
+                }
+            });
+        }
+
+        if (typeof tinymce !== 'undefined') {
+            tinymce.init({
+                selector: 'textarea.rich-text-editor',
+                height: 420,
+                menubar: false,
+                plugins: 'autoresize code link lists table',
+                toolbar: 'undo redo | styles | bold italic underline | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | link table | removeformat | code',
+                branding: false,
+                convert_urls: false,
+                relative_urls: false,
+                skin: document.documentElement.classList.contains('dark-mode') ? 'oxide-dark' : 'oxide',
+                content_css: document.documentElement.classList.contains('dark-mode') ? 'dark' : 'default',
+                autoresize_bottom_margin: 16,
+                setup: function (editor) {
+                    editor.on('init', function () {
+                        editor.getContainer().style.transition = 'box-shadow 0.3s ease';
+                    });
                 }
             });
         }

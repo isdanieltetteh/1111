@@ -2,6 +2,9 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/MailService.php';
+require_once __DIR__ . '/../includes/email_template.php';
+require_once __DIR__ . '/../includes/newsletter_helpers.php';
 
 $auth = new Auth();
 $database = new Database();
@@ -15,6 +18,12 @@ if (!$auth->isAdmin()) {
 
 $success_message = '';
 $error_message = '';
+$mailService = MailService::getInstance();
+
+$defaultPreheader = 'Newsletter updates from ' . SITE_NAME;
+$messageHtml = isset($_POST['message_html']) ? (string) $_POST['message_html'] : email_default_content_html();
+$messageText = isset($_POST['message_text']) ? (string) $_POST['message_text'] : email_default_content_text();
+$preheader = isset($_POST['preheader']) ? trim((string) $_POST['preheader']) : $defaultPreheader;
 
 // Handle actions
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -22,63 +31,150 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     switch ($action) {
         case 'send_newsletter':
-    $subject = trim($_POST['subject']);
-    $content = trim($_POST['content']);
-    $target_preferences = $_POST['target_preferences'] ?? [];
-    
-    if (empty($subject) || empty($content)) {
-        $error_message = 'Subject and content are required';
-        break;
-    }
-    
-    // Build query based on preferences
-    $where_conditions = ['ns.is_active = 1', 'ns.verified_at IS NOT NULL'];
-    $params = [];
-    
-    if (!empty($target_preferences)) {
-        $preference_conditions = [];
-        foreach ($target_preferences as $index => $pref) {
-            $preference_conditions[] = "JSON_CONTAINS(ns.preferences, ?)";
-            $params[":pref{$index}"] = '"' . $pref . '"';
-        }
-        $where_clause_prefs = '(' . implode(' OR ', $preference_conditions) . ')';
-        $where_conditions[] = $where_clause_prefs;
-    }
-    
-    $where_clause = implode(' AND ', $where_conditions);
-    
-    // Get subscribers
-    $subscribers_query = "SELECT ns.email, u.username 
-                        FROM newsletter_subscriptions ns
-                        LEFT JOIN users u ON ns.user_id = u.id
-                        WHERE {$where_clause}";
-    $subscribers_stmt = $db->prepare($subscribers_query);
-    if (!empty($params)) {
-        $subscribers_stmt->execute(array_values($params));
-    } else {
-        $subscribers_stmt->execute();
-    }
-    $subscribers = $subscribers_stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    if (!empty($subscribers)) {
-        // Log newsletter campaign
-        $recipient_count = count($subscribers); // Store count in a variable
-        $target_audience = implode(',', $target_preferences);
-        $campaign_query = "INSERT INTO email_campaigns (subject, message, target_audience, recipient_count, sent_by) 
-                          VALUES (:subject, :content, :target, :count, :admin_id)";
-        $campaign_stmt = $db->prepare($campaign_query);
-        $campaign_stmt->bindParam(':subject', $subject);
-        $campaign_stmt->bindParam(':content', $content);
-        $campaign_stmt->bindParam(':target', $target_audience);
-        $campaign_stmt->bindParam(':count', $recipient_count, PDO::PARAM_INT);
-        $campaign_stmt->bindParam(':admin_id', $_SESSION['user_id'], PDO::PARAM_INT);
-        $campaign_stmt->execute();
-        
-        $success_message = 'Newsletter sent to ' . $recipient_count . ' subscribers!';
-    } else {
-        $error_message = 'No subscribers found for selected preferences';
-    }
-    break;
+            $subject = trim((string) ($_POST['subject'] ?? ''));
+            $messageHtml = (string) ($_POST['message_html'] ?? $messageHtml);
+            $messageText = (string) ($_POST['message_text'] ?? $messageText);
+            $preheader = trim((string) ($_POST['preheader'] ?? $preheader));
+            $target_preferences = $_POST['target_preferences'] ?? [];
+
+            if ($subject === '' || trim(strip_tags($messageHtml)) === '') {
+                $error_message = 'Subject and newsletter content are required';
+                break;
+            }
+
+            $where_conditions = ['ns.is_active = 1', 'ns.verified_at IS NOT NULL'];
+            $params = [];
+
+            if (!empty($target_preferences)) {
+                $preference_conditions = [];
+                foreach ($target_preferences as $index => $pref) {
+                    $preference_conditions[] = "JSON_CONTAINS(ns.preferences, ?)";
+                    $params[":pref{$index}"] = '"' . $pref . '"';
+                }
+                $where_conditions[] = '(' . implode(' OR ', $preference_conditions) . ')';
+            }
+
+            $where_clause = implode(' AND ', $where_conditions);
+
+            $subscribers_query = "SELECT ns.email, COALESCE(u.username, '') AS username
+                                FROM newsletter_subscriptions ns
+                                LEFT JOIN users u ON ns.user_id = u.id
+                                WHERE {$where_clause}";
+            $subscribers_stmt = $db->prepare($subscribers_query);
+            if (!empty($params)) {
+                $subscribers_stmt->execute(array_values($params));
+            } else {
+                $subscribers_stmt->execute();
+            }
+            $subscribers = $subscribers_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (empty($subscribers)) {
+                $error_message = 'No subscribers found for selected preferences';
+                break;
+            }
+
+            $db->beginTransaction();
+            try {
+                $target_audience = $target_preferences ? implode(',', $target_preferences) : 'newsletter';
+                $campaign_stmt = $db->prepare("INSERT INTO email_campaigns (subject, message, target_audience, recipient_count, sent_by) VALUES (:subject, :message, :target, :count, :admin)");
+                $campaign_stmt->execute([
+                    ':subject' => $subject,
+                    ':message' => $messageHtml,
+                    ':target' => $target_audience,
+                    ':count' => count($subscribers),
+                    ':admin' => $_SESSION['user_id'] ?? null,
+                ]);
+
+                $campaignId = (int) $db->lastInsertId();
+                $queueInsert = $db->prepare("INSERT INTO email_queue (campaign_id, recipient_email, recipient_name, subject, message, error_message, status) VALUES (:campaign, :email, :name, :subject, :message, NULL, 'pending')");
+                $queueUpdate = $db->prepare("UPDATE email_queue SET status = :status, sent_at = :sent_at, error_message = :error WHERE id = :id");
+
+                $renderEmail = function (string $htmlTemplate, string $textTemplate, string $subjectLine, string $preheaderText, string $recipientName, string $recipientEmail): array {
+                    $displayName = $recipientName !== '' ? $recipientName : 'there';
+                    $context = email_build_context([
+                        'subject' => $subjectLine,
+                        'preheader' => $preheaderText,
+                        'name' => $displayName,
+                        'username' => $displayName,
+                        'unsubscribe_url' => newsletter_unsubscribe_url($recipientEmail),
+                    ]);
+
+                    [$htmlBody, $plainBody] = email_render_bodies($htmlTemplate, $textTemplate, $context, $preheaderText);
+
+                    return [$htmlBody, $plainBody, $context];
+                };
+
+                $sentCount = 0;
+                $failedCount = 0;
+
+                foreach ($subscribers as $subscriber) {
+                    $recipientEmail = trim((string) ($subscriber['email'] ?? ''));
+                    if (!filter_var($recipientEmail, FILTER_VALIDATE_EMAIL)) {
+                        continue;
+                    }
+
+                    $recipientName = trim((string) ($subscriber['username'] ?? ''));
+                    [$htmlBody, $plainBody, $context] = $renderEmail($messageHtml, $messageText, $subject, $preheader, $recipientName, $recipientEmail);
+                    $unsubscribeUrl = $context['unsubscribe_url'] ?? newsletter_unsubscribe_url($recipientEmail);
+
+                    $queueInsert->execute([
+                        ':campaign' => $campaignId,
+                        ':email' => $recipientEmail,
+                        ':name' => $recipientName,
+                        ':subject' => $subject,
+                        ':message' => $htmlBody,
+                    ]);
+
+                    $queueId = (int) $db->lastInsertId();
+
+                    $result = $mailService->send(
+                        [['email' => $recipientEmail, 'name' => $recipientName]],
+                        $subject,
+                        $htmlBody,
+                        [
+                            'text' => $plainBody,
+                            'reply_to' => ['email' => SITE_EMAIL, 'name' => SITE_NAME],
+                            'list_unsubscribe' => [$unsubscribeUrl, 'mailto:' . SITE_EMAIL],
+                            'list_unsubscribe_post' => true,
+                            'custom_headers' => [
+                                'X-Campaign-ID' => $campaignId,
+                                'X-Entity-Ref-ID' => 'newsletter:' . $campaignId . ':' . $queueId,
+                            ],
+                        ]
+                    );
+
+                    $status = $result['success'] ? 'sent' : 'failed';
+                    $error = $result['success'] ? null : substr((string) $result['message'], 0, 500);
+                    $queueUpdate->execute([
+                        ':status' => $status,
+                        ':sent_at' => date('Y-m-d H:i:s'),
+                        ':error' => $error,
+                        ':id' => $queueId,
+                    ]);
+
+                    if ($result['success']) {
+                        $sentCount++;
+                    } else {
+                        $failedCount++;
+                    }
+                }
+
+                $db->commit();
+
+                $parts = [];
+                if ($sentCount > 0) {
+                    $parts[] = number_format($sentCount) . ' delivered';
+                }
+                if ($failedCount > 0) {
+                    $parts[] = number_format($failedCount) . ' failed';
+                }
+
+                $success_message = 'Newsletter processed successfully: ' . implode(', ', $parts ?: ['no emails were sent.']);
+            } catch (Throwable $throwable) {
+                $db->rollBack();
+                $error_message = 'Unable to send newsletter: ' . $throwable->getMessage();
+            }
+            break;
             
         case 'export_subscribers':
             $preference_filter = $_POST['preference_filter'] ?? 'all';
@@ -390,12 +486,25 @@ include 'includes/admin_header.php';
                         <label class="form-label">Subject</label>
                         <input type="text" name="subject" class="form-control" placeholder="Newsletter subject" required>
                     </div>
-                    
+
                     <div class="mb-3">
-                        <label class="form-label">Content</label>
-                        <textarea name="content" class="form-control" rows="8" placeholder="Newsletter content..." required></textarea>
+                        <label class="form-label">Preheader</label>
+                        <input type="text" name="preheader" class="form-control" value="<?php echo htmlspecialchars($preheader, ENT_QUOTES, 'UTF-8'); ?>" placeholder="Inbox preview copy">
+                        <small class="text-muted">Displayed next to the subject line in most email clients.</small>
                     </div>
-                    
+
+                    <div class="mb-3">
+                        <label class="form-label">HTML content</label>
+                        <textarea name="message_html" class="form-control rich-text-editor" rows="12" data-editor="wysiwyg"><?php echo htmlspecialchars($messageHtml, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        <small class="text-muted">You can reference {{name}}, {{site_name}} and {{unsubscribe_url}} to personalise the campaign.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Plain text fallback</label>
+                        <textarea name="message_text" class="form-control" rows="6" placeholder="Optional text-only version."><?php echo htmlspecialchars($messageText, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        <small class="text-muted">Leave blank to auto-generate a readable plain text email.</small>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label">Target Preferences</label>
                         <div class="row">
@@ -439,6 +548,7 @@ include 'includes/admin_header.php';
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.2/tinymce.min.js" referrerpolicy="origin"></script>
 <script>
 function exportSubscribers() {
     const form = document.createElement('form');
@@ -448,6 +558,24 @@ function exportSubscribers() {
     form.submit();
     document.body.removeChild(form);
 }
+
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof tinymce !== 'undefined') {
+        tinymce.init({
+            selector: 'textarea.rich-text-editor',
+            height: 420,
+            menubar: false,
+            plugins: 'autoresize code link lists table',
+            toolbar: 'undo redo | styles | bold italic underline | forecolor backcolor | alignleft aligncenter alignright alignjustify | bullist numlist | link table | removeformat | code',
+            branding: false,
+            convert_urls: false,
+            relative_urls: false,
+            skin: document.documentElement.classList.contains('dark-mode') ? 'oxide-dark' : 'oxide',
+            content_css: document.documentElement.classList.contains('dark-mode') ? 'dark' : 'default',
+            autoresize_bottom_margin: 16
+        });
+    }
+});
 </script>
 
 <?php include 'includes/admin_footer.php'; ?>
