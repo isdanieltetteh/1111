@@ -2,6 +2,7 @@
 require_once __DIR__ . '/config/config.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/config/database.php';
+require_once __DIR__ . '/includes/ad-settings.php';
 
 $auth = new Auth();
 $database = new Database();
@@ -18,6 +19,9 @@ $user_id = $_SESSION['user_id'];
 
 $success_message = '';
 $error_message = '';
+
+$min_cpc_rate = max(0.0, (float) get_ad_setting($db, 'min_cpc_rate', 0.05));
+$min_cpm_rate = max(0.0, (float) get_ad_setting($db, 'min_cpm_rate', 1.00));
 
 // Handle ad purchase
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['action'] === 'purchase') {
@@ -214,8 +218,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
                 $total_cost = $base_cost + $premium_cost;
             }
         } elseif ($campaign_type === 'cpc') {
+            $minimum_cpc = max(0.0, $min_cpc_rate);
             if ($budget_total <= 0 || $cpc_rate <= 0) {
                 $error_message = 'Provide a valid budget and CPC rate.';
+            } elseif ($cpc_rate < $minimum_cpc) {
+                $error_message = 'CPC rate must be at least $' . format_ad_rate($minimum_cpc) . '.';
             } elseif ($budget_total < $cpc_rate) {
                 $error_message = 'CPC budget must exceed the cost per click.';
             } else {
@@ -225,8 +232,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action']) && $_POST['a
             }
             $premium_cost = 0;
         } else { // CPM
+            $minimum_cpm = max(0.0, $min_cpm_rate);
             if ($budget_total <= 0 || $cpm_rate <= 0) {
                 $error_message = 'Provide a valid budget and CPM rate.';
+            } elseif ($cpm_rate < $minimum_cpm) {
+                $error_message = 'CPM rate must be at least $' . format_ad_rate($minimum_cpm) . '.';
             } else {
                 $base_cost = $budget_total;
                 $total_cost = $budget_total;
@@ -778,7 +788,7 @@ include 'includes/header.php';
                                         <option value="cpc">CPC - Pay Per Click</option>
                                         <option value="cpm">CPM - Per 1,000 Impressions</option>
                                     </select>
-                                    <span class="form-help">Pick how you want to fund and measure performance.</span>
+                                    <span class="form-help">Pick how you want to fund and measure performance. CPC and CPM bids rotate based on the rate you choose—higher bids secure more exposure.</span>
                                 </div>
                                 <div class="col-md-6">
                                     <label class="form-label">Placement Strategy *</label>
@@ -854,17 +864,31 @@ include 'includes/header.php';
                                     <label class="form-label">CPC Rate *</label>
                                     <div class="input-group">
                                         <span class="input-group-text">$</span>
-                                        <input type="number" step="0.01" min="0" class="form-control" name="cpc_rate" id="cpcRateInput" placeholder="0.35">
+                                        <input type="number"
+                                               step="0.0001"
+                                               min="<?php echo number_format(max(0, $min_cpc_rate), 4, '.', ''); ?>"
+                                               data-min="<?php echo number_format(max(0, $min_cpc_rate), 4, '.', ''); ?>"
+                                               class="form-control"
+                                               name="cpc_rate"
+                                               id="cpcRateInput"
+                                               placeholder="<?php echo format_ad_rate(max(0, $min_cpc_rate)); ?>">
                                     </div>
-                                    <span class="form-help">Amount deducted for every click you receive.</span>
+                                    <span class="form-help">Amount deducted for every click. Minimum $<?php echo format_ad_rate(max(0, $min_cpc_rate)); ?>. Higher bids are prioritised for visibility.</span>
                                 </div>
                                 <div class="col-md-6 d-none" id="cpmRateField">
                                     <label class="form-label">CPM Rate *</label>
                                     <div class="input-group">
                                         <span class="input-group-text">$</span>
-                                        <input type="number" step="0.01" min="0" class="form-control" name="cpm_rate" id="cpmRateInput" placeholder="4.50">
+                                        <input type="number"
+                                               step="0.0001"
+                                               min="<?php echo number_format(max(0, $min_cpm_rate), 4, '.', ''); ?>"
+                                               data-min="<?php echo number_format(max(0, $min_cpm_rate), 4, '.', ''); ?>"
+                                               class="form-control"
+                                               name="cpm_rate"
+                                               id="cpmRateInput"
+                                               placeholder="<?php echo format_ad_rate(max(0, $min_cpm_rate)); ?>">
                                     </div>
-                                    <span class="form-help">Cost per thousand impressions (CPM).</span>
+                                    <span class="form-help">Cost per thousand impressions (CPM). Minimum $<?php echo format_ad_rate(max(0, $min_cpm_rate)); ?>. Higher bids unlock more rotation weight.</span>
                                 </div>
                                 <div class="col-12" id="bannerFields" style="display: none;">
                                     <div class="row g-4">
@@ -1022,6 +1046,8 @@ include 'includes/header.php';
     const budgetInput = document.getElementById('budgetInput');
     const cpcRateInput = document.getElementById('cpcRateInput');
     const cpmRateInput = document.getElementById('cpmRateInput');
+    const minCpcRate = cpcRateInput ? parseFloat(cpcRateInput.dataset.min || '0') : 0;
+    const minCpmRate = cpmRateInput ? parseFloat(cpmRateInput.dataset.min || '0') : 0;
     const basePriceLabel = document.getElementById('basePriceLabel');
     const premiumCostRow = document.getElementById('premiumCostRow');
     const billingModelRow = document.getElementById('billingModelRow');
@@ -1038,6 +1064,12 @@ include 'includes/header.php';
     const textPreviewContainer = document.querySelector('#textAdPreview .preview-content');
     const targetedFields = document.getElementById('targetedPlacementFields');
     const generalFields = document.getElementById('generalPlacementFields');
+
+    const formatRateDisplay = (value) => {
+        const numeric = Number(value || 0);
+        const fixed = numeric.toFixed(4);
+        return fixed.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+    };
 
     let selectedType = null;
     let selectedDuration = null;
@@ -1280,12 +1312,12 @@ include 'includes/header.php';
 
         if (selectedCampaignType === 'cpc') {
             if (!budgetInput.value || parseFloat(budgetInput.value) <= 0) return false;
-            if (!cpcRateInput.value || parseFloat(cpcRateInput.value) <= 0) return false;
+            if (!cpcRateInput.value || parseFloat(cpcRateInput.value) < minCpcRate) return false;
         }
 
         if (selectedCampaignType === 'cpm') {
             if (!budgetInput.value || parseFloat(budgetInput.value) <= 0) return false;
-            if (!cpmRateInput.value || parseFloat(cpmRateInput.value) <= 0) return false;
+            if (!cpmRateInput.value || parseFloat(cpmRateInput.value) < minCpmRate) return false;
         }
 
         return true;
@@ -1315,9 +1347,11 @@ include 'includes/header.php';
             rateRow.style.display = 'none';
         } else {
             const budget = parseFloat(budgetInput.value) || 0;
-            const rateValueNumber = selectedCampaignType === 'cpc'
+            const rawRateValue = selectedCampaignType === 'cpc'
                 ? (parseFloat(cpcRateInput.value) || 0)
                 : (parseFloat(cpmRateInput.value) || 0);
+            const minimumRate = selectedCampaignType === 'cpc' ? minCpcRate : minCpmRate;
+            const rateValueNumber = Math.max(rawRateValue, minimumRate);
             basePrice = budget;
             totalCost = budget;
             basePriceLabel.textContent = 'Campaign Budget';
@@ -1327,7 +1361,7 @@ include 'includes/header.php';
             billingModelValue.textContent = selectedCampaignType.toUpperCase();
             rateRow.style.display = 'flex';
             rateLabel.textContent = selectedCampaignType === 'cpc' ? 'Cost Per Click' : 'CPM Rate';
-            rateValue.textContent = '$' + rateValueNumber.toFixed(2);
+            rateValue.textContent = '$' + formatRateDisplay(rateValueNumber);
         }
 
         document.getElementById('totalCost').textContent = '$' + totalCost.toFixed(2);

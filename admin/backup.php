@@ -71,6 +71,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
             
             if (file_put_contents($backup_path, $sql_dump)) {
+                // Log the backup creation in admin_actions
+                $log_query = "INSERT INTO admin_actions (admin_id, action, target_type, notes) 
+                             VALUES (:admin_id, 'create_backup', 'backup', :notes)";
+                $log_stmt = $db->prepare($log_query);
+                $log_stmt->bindParam(':admin_id', $_SESSION['user_id'], PDO::PARAM_INT);
+                $log_stmt->bindParam(':notes', $backup_name);
+                $log_stmt->execute();
+
                 $success_message = "Backup created successfully: {$backup_name}";
             } else {
                 $error_message = 'Error creating backup file';
@@ -96,6 +104,22 @@ if (is_dir('../backups')) {
     usort($backups, function($a, $b) {
         return $b['created'] - $a['created'];
     });
+}
+
+// Get recent activity from admin_actions
+$recent_activity = [];
+try {
+    $activity_query = "SELECT aa.created_at AS activity_time, u.username AS user_name, aa.action AS description
+                      FROM admin_actions aa
+                      JOIN users u ON aa.admin_id = u.id
+                      WHERE aa.action IN ('create_backup', 'adjust_site_stats', 'bulk_adjust_stats', 'generate_realistic_data')
+                      ORDER BY aa.created_at DESC
+                      LIMIT 10";
+    $activity_stmt = $db->prepare($activity_query);
+    $activity_stmt->execute();
+    $recent_activity = $activity_stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $error_message = 'Error loading recent activity: ' . $e->getMessage();
 }
 
 $page_title = 'Database Backup - Admin Panel';
@@ -240,15 +264,22 @@ include 'includes/admin_header.php';
                 </div>
                 <div class="card-body">
                     <div style="max-height: 400px; overflow-y: auto;">
-                        <?php foreach ($recent_activity as $activity): ?>
-                        <div class="border-bottom pb-2 mb-2">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <strong><?php echo htmlspecialchars($activity['user_name']); ?></strong>
-                                <small class="text-muted"><?php echo date('M j, g:i A', strtotime($activity['activity_time'])); ?></small>
+                        <?php if (!empty($recent_activity)): ?>
+                            <?php foreach ($recent_activity as $activity): ?>
+                            <div class="border-bottom pb-2 mb-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <strong><?php echo htmlspecialchars($activity['user_name']); ?></strong>
+                                    <small class="text-muted"><?php echo date('M j, g:i A', strtotime($activity['activity_time'])); ?></small>
+                                </div>
+                                <p class="mb-0 text-muted"><?php echo htmlspecialchars($activity['description']); ?></p>
                             </div>
-                            <p class="mb-0 text-muted"><?php echo htmlspecialchars($activity['description']); ?></p>
-                        </div>
-                        <?php endforeach; ?>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <div class="text-center py-4">
+                                <i class="fas fa-info-circle fa-2x text-muted mb-2"></i>
+                                <p class="text-muted">No recent activity recorded.</p>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

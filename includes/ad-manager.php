@@ -23,17 +23,7 @@ class AdManager {
                 $query .= " AND ua.placement_type = 'targeted' AND ua.target_space_id = :space_id";
             }
 
-            if ($prefer_premium) {
-                $query .= " ORDER BY
-                            CASE ua.visibility_level
-                                WHEN 'premium' THEN 1
-                                ELSE 2
-                            END,
-                            RAND()
-                            LIMIT 1";
-            } else {
-                $query .= " ORDER BY RAND() LIMIT 1";
-            }
+            $query .= $this->buildOrderingClause($prefer_premium) . ' LIMIT 1';
 
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':ad_type', $ad_type);
@@ -110,19 +100,7 @@ class AdManager {
             $params[] = $space['space_id'];
         }
 
-        $query .= " ORDER BY
-                        CASE ua.visibility_level
-                            WHEN 'premium' THEN 1
-                            ELSE 2
-                        END,
-                        CASE ua.campaign_type
-                            WHEN 'cpc' THEN 1
-                            WHEN 'cpm' THEN 2
-                            ELSE 3
-                        END,
-                        ua.updated_at DESC,
-                        RAND()
-                    LIMIT 1";
+        $query .= $this->buildOrderingClause(true) . ' LIMIT 1';
 
         $stmt = $this->db->prepare($query);
         $stmt->execute($params);
@@ -135,20 +113,14 @@ class AdManager {
      */
     public function getAds($ad_type = 'banner', $limit = 3) {
         try {
-            $query = "SELECT * FROM user_advertisements
-                      WHERE status = 'active'
-                        AND ad_type = :ad_type
-                        AND (campaign_type = 'standard' OR budget_remaining > 0)
-                        AND (start_date IS NULL OR start_date <= NOW())
-                        AND (end_date IS NULL OR end_date >= NOW() OR campaign_type IN ('cpc','cpm'))
-                      ORDER BY
-                        CASE visibility_level
-                            WHEN 'premium' THEN 1
-                            ELSE 2
-                        END,
-                        updated_at DESC,
-                        RAND()
-                      LIMIT :limit";
+            $query = "SELECT ua.* FROM user_advertisements ua
+                      WHERE ua.status = 'active'
+                        AND ua.ad_type = :ad_type
+                        AND (ua.campaign_type = 'standard' OR ua.budget_remaining > 0)
+                        AND (ua.start_date IS NULL OR ua.start_date <= NOW())
+                        AND (ua.end_date IS NULL OR ua.end_date >= NOW() OR ua.campaign_type IN ('cpc','cpm'))";
+
+            $query .= $this->buildOrderingClause(true) . ' LIMIT :limit';
 
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':ad_type', $ad_type);
@@ -348,6 +320,21 @@ class AdManager {
         } catch (Exception $e) {
             return false;
         }
+    }
+
+    private function buildOrderingClause($includeVisibilityPriority = true) {
+        $clauses = [];
+
+        if ($includeVisibilityPriority) {
+            $clauses[] = "CASE ua.visibility_level WHEN 'premium' THEN 1 ELSE 2 END";
+        }
+
+        $clauses[] = "CASE ua.campaign_type WHEN 'cpc' THEN 1 WHEN 'cpm' THEN 2 ELSE 3 END";
+        $clauses[] = "CASE WHEN ua.campaign_type = 'cpc' THEN ua.cpc_rate WHEN ua.campaign_type = 'cpm' THEN ua.cpm_rate ELSE 0 END DESC";
+        $clauses[] = "ua.updated_at DESC";
+        $clauses[] = "RAND()";
+
+        return ' ORDER BY ' . implode(', ', $clauses);
     }
 
     private function getAdById($ad_id) {

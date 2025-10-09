@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Oct 02, 2025 at 08:40 PM
+-- Generation Time: Oct 08, 2025 at 08:35 PM
 -- Server version: 11.4.8-MariaDB
 -- PHP Version: 8.4.11
 
@@ -127,7 +127,9 @@ INSERT INTO `ad_settings` (`id`, `setting_key`, `setting_value`, `updated_at`) V
 (4, 'banner_max_file_size', '2097152', '2025-10-02 11:19:37'),
 (5, 'allowed_image_types', 'image/jpeg,image/png,image/gif', '2025-10-02 11:19:37'),
 (6, 'rotation_algorithm', 'fair', '2025-10-02 11:19:37'),
-(7, 'min_credit_balance', '1.00', '2025-10-02 11:19:37');
+(7, 'min_credit_balance', '1.00', '2025-10-02 11:19:37'),
+(8, 'min_cpc_rate', '0.0500', '2025-10-08 19:45:41'),
+(9, 'min_cpm_rate', '1.0000', '2025-10-08 19:45:41');
 
 -- --------------------------------------------------------
 
@@ -388,8 +390,6 @@ CREATE TABLE `email_campaigns` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
-
 --
 -- Table structure for table `email_queue`
 --
@@ -406,30 +406,6 @@ CREATE TABLE `email_queue` (
   `sent_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `visitor_logs`
---
-
-CREATE TABLE `visitor_logs` (
-  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-  `ip_address` varchar(45) NOT NULL,
-  `country` varchar(64) DEFAULT 'Unknown',
-  `page_url` varchar(512) NOT NULL,
-  `referrer` varchar(512) DEFAULT NULL,
-  `user_agent` varchar(512) DEFAULT NULL,
-  `visit_time` timestamp NOT NULL DEFAULT current_timestamp(),
-  PRIMARY KEY (`id`),
-  KEY `idx_visit_time` (`visit_time`),
-  KEY `idx_country` (`country`),
-  KEY `idx_referrer` (`referrer`(191)),
-  KEY `idx_page_url` (`page_url`(191)),
-  KEY `idx_ip_time` (`ip_address`,`visit_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
 
 --
 -- Table structure for table `feature_pricing`
@@ -608,6 +584,22 @@ CREATE TABLE `promotion_pricing` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+--
+-- Dumping data for table `promotion_pricing`
+--
+
+INSERT INTO `promotion_pricing` (`id`, `promotion_type`, `duration_days`, `price`, `is_active`, `created_at`) VALUES
+(1, 'sponsored', 1, 5.00, 1, '2025-10-04 01:00:27'),
+(2, 'sponsored', 3, 10.00, 1, '2025-10-04 01:00:27'),
+(3, 'sponsored', 7, 20.00, 1, '2025-10-04 01:00:27'),
+(4, 'sponsored', 30, 80.00, 1, '2025-10-04 01:00:27'),
+(5, 'sponsored', 90, 200.00, 1, '2025-10-04 01:00:27'),
+(6, 'boosted', 1, 2.00, 1, '2025-10-04 01:00:27'),
+(7, 'boosted', 3, 5.00, 1, '2025-10-04 01:00:27'),
+(8, 'boosted', 7, 10.00, 1, '2025-10-04 01:00:27'),
+(9, 'boosted', 30, 30.00, 1, '2025-10-04 01:00:27'),
+(10, 'boosted', 90, 80.00, 1, '2025-10-04 01:00:27');
+
 -- --------------------------------------------------------
 
 --
@@ -756,7 +748,6 @@ CREATE TABLE `remember_tokens` (
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
 
 --
 -- Table structure for table `reviews`
@@ -874,8 +865,6 @@ CREATE TABLE `security_logs` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
-
 --
 -- Table structure for table `sessions`
 --
@@ -931,7 +920,9 @@ CREATE TABLE `sites` (
   `consecutive_failures` int(11) DEFAULT 0,
   `last_health_check` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `first_failure_at` timestamp NULL DEFAULT NULL,
+  `uptime_percentage` decimal(5,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -1043,11 +1034,13 @@ CREATE TABLE `site_health_checks` (
   `response_time` decimal(8,3) DEFAULT NULL,
   `is_accessible` tinyint(1) DEFAULT 0,
   `error_message` text DEFAULT NULL,
-  `consecutive_failures` int(11) DEFAULT 0,
-  `first_failure_at` timestamp NULL DEFAULT NULL,
   `admin_approved_dead` tinyint(1) DEFAULT 0,
   `admin_notes` text DEFAULT NULL,
-  `last_checked` timestamp NOT NULL DEFAULT current_timestamp()
+  `last_checked` timestamp NOT NULL DEFAULT current_timestamp(),
+  `check_count` int(11) NOT NULL DEFAULT 0,
+  `ssl_valid` tinyint(1) DEFAULT 0,
+  `content_length` int(11) DEFAULT 0,
+  `server_info` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -1207,8 +1200,6 @@ CREATE TABLE `users` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
-
 --
 -- Table structure for table `user_actions`
 --
@@ -1309,7 +1300,19 @@ CREATE TABLE `user_wallets` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
+--
+-- Table structure for table `visitor_logs`
+--
+
+CREATE TABLE `visitor_logs` (
+  `id` bigint(20) UNSIGNED NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `country` varchar(64) DEFAULT 'Unknown',
+  `page_url` varchar(512) NOT NULL,
+  `referrer` varchar(512) DEFAULT NULL,
+  `user_agent` varchar(512) DEFAULT NULL,
+  `visit_time` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Table structure for table `votes`
@@ -1349,15 +1352,6 @@ CREATE TABLE `wallet_settings` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `wallet_settings`
---
-
-INSERT INTO `wallet_settings` (`id`, `sort_order`, `min_deposit`, `min_withdrawal`, `min_points_withdrawal`, `min_faucetpay_points_withdrawal`, `points_to_usd_rate`, `referral_percentage`, `withdrawal_fee_percentage`, `faucetpay_fee_percentage`, `faucetpay_merchant_id`, `faucetpay_api_key`, `bitpay_api_token`, `bitpay_environment`, `bitpay_webhook_secret`, `created_at`, `updated_at`) VALUES
-(1, 0, 1.0000, 1.0000, 1000, 500, 0.000100, 10.00, 2.00, 1.00, 'godwin853', '1052b4763b5830b1a082942e39f673f4c0e64c9b12e3c155f5ea46e7fad0baa9', '', NULL, '', '2025-09-09 01:00:27', '2025-09-11 22:17:16');
-
--- --------------------------------------------------------
 
 --
 -- Table structure for table `withdrawal_currencies`
@@ -1986,6 +1980,17 @@ ALTER TABLE `user_wallets`
   ADD UNIQUE KEY `user_id` (`user_id`);
 
 --
+-- Indexes for table `visitor_logs`
+--
+ALTER TABLE `visitor_logs`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_visit_time` (`visit_time`),
+  ADD KEY `idx_country` (`country`),
+  ADD KEY `idx_referrer` (`referrer`(191)),
+  ADD KEY `idx_page_url` (`page_url`(191)),
+  ADD KEY `idx_ip_time` (`ip_address`,`visit_time`);
+
+--
 -- Indexes for table `votes`
 --
 ALTER TABLE `votes`
@@ -2056,7 +2061,7 @@ ALTER TABLE `ad_pricing`
 -- AUTO_INCREMENT for table `ad_settings`
 --
 ALTER TABLE `ad_settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `ad_spaces`
@@ -2128,13 +2133,13 @@ ALTER TABLE `deposit_transactions`
 -- AUTO_INCREMENT for table `email_campaigns`
 --
 ALTER TABLE `email_campaigns`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `email_queue`
 --
 ALTER TABLE `email_queue`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `feature_pricing`
@@ -2188,7 +2193,7 @@ ALTER TABLE `points_transactions`
 -- AUTO_INCREMENT for table `promotion_pricing`
 --
 ALTER TABLE `promotion_pricing`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `redirect_ads`
@@ -2230,7 +2235,7 @@ ALTER TABLE `referral_tiers`
 -- AUTO_INCREMENT for table `remember_tokens`
 --
 ALTER TABLE `remember_tokens`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `reviews`
@@ -2260,13 +2265,13 @@ ALTER TABLE `scam_reports_log`
 -- AUTO_INCREMENT for table `secure_visit_tokens`
 --
 ALTER TABLE `secure_visit_tokens`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `security_logs`
 --
 ALTER TABLE `security_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `sites`
@@ -2338,7 +2343,7 @@ ALTER TABLE `temp_email_domains`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `user_actions`
@@ -2368,7 +2373,13 @@ ALTER TABLE `user_referrals`
 -- AUTO_INCREMENT for table `user_wallets`
 --
 ALTER TABLE `user_wallets`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `visitor_logs`
+--
+ALTER TABLE `visitor_logs`
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=334;
 
 --
 -- AUTO_INCREMENT for table `votes`
@@ -2395,7 +2406,7 @@ ALTER TABLE `withdrawal_requests`
 --
 DROP TABLE IF EXISTS `review_reply_counts`;
 
-CREATE VIEW `review_reply_counts`  AS SELECT `r`.`id` AS `review_id`, count(`rr`.`id`) AS `reply_count`, max(`rr`.`created_at`) AS `last_reply_at` FROM (`reviews` `r` left join `review_replies` `rr` on(`r`.`id` = `rr`.`review_id` and `rr`.`is_deleted` = 0)) GROUP BY `r`.`id` ;
+CREATE ALGORITHM=UNDEFINED DEFINER=`mwqnrvfg`@`localhost` SQL SECURITY DEFINER VIEW `review_reply_counts`  AS SELECT `r`.`id` AS `review_id`, count(`rr`.`id`) AS `reply_count`, max(`rr`.`created_at`) AS `last_reply_at` FROM (`reviews` `r` left join `review_replies` `rr` on(`r`.`id` = `rr`.`review_id` and `rr`.`is_deleted` = 0)) GROUP BY `r`.`id` ;
 
 --
 -- Constraints for dumped tables

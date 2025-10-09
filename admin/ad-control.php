@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/ad-settings.php';
 
 $auth = new Auth();
 $database = new Database();
@@ -14,12 +15,57 @@ if (!$auth->isAdmin()) {
 
 $success_message = '';
 $error_message = '';
+$schema_warnings = [];
+
+function ad_table_has_column(PDO $db, string $table, string $column): bool
+{
+    static $cache = [];
+
+    $cacheKey = $table . '.' . $column;
+    if (array_key_exists($cacheKey, $cache)) {
+        return $cache[$cacheKey];
+    }
+
+    $sanitisedTable = str_replace('`', '``', $table);
+    $columnQuery = sprintf('SHOW COLUMNS FROM `%s` LIKE :column_name', $sanitisedTable);
+
+    try {
+        $columnStmt = $db->prepare($columnQuery);
+        $columnStmt->bindParam(':column_name', $column, PDO::PARAM_STR);
+        $columnStmt->execute();
+        $cache[$cacheKey] = $columnStmt->fetch(PDO::FETCH_ASSOC) !== false;
+    } catch (Exception $exception) {
+        $cache[$cacheKey] = false;
+    }
+
+    return $cache[$cacheKey];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     try {
         switch ($action) {
+            case 'update_min_rates':
+                $minCpcInput = isset($_POST['min_cpc_rate']) ? (float) $_POST['min_cpc_rate'] : 0;
+                $minCpmInput = isset($_POST['min_cpm_rate']) ? (float) $_POST['min_cpm_rate'] : 0;
+
+                $minCpc = max(0, round($minCpcInput, 4));
+                $minCpm = max(0, round($minCpmInput, 4));
+
+                $savedCpc = number_format($minCpc, 4, '.', '');
+                $savedCpm = number_format($minCpm, 4, '.', '');
+
+                $updatedCpc = set_ad_setting($db, 'min_cpc_rate', $savedCpc);
+                $updatedCpm = set_ad_setting($db, 'min_cpm_rate', $savedCpm);
+
+                if ($updatedCpc && $updatedCpm) {
+                    $success_message = 'Performance campaign minimum bids updated.';
+                } else {
+                    $error_message = 'Unable to update minimum bid settings. Please try again.';
+                }
+                break;
+
             case 'toggle_space':
                 $spaceId = (int) ($_POST['space_id'] ?? 0);
                 $isEnabled = isset($_POST['is_enabled']) && (int) $_POST['is_enabled'] === 1 ? 1 : 0;
@@ -78,14 +124,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$financialExpression = "CASE WHEN ua.campaign_type IN ('cpc','cpm') THEN ua.total_spent ELSE (ua.cost_paid + ua.premium_cost) END";
+$min_cpc_rate = max(0.0, (float) get_ad_setting($db, 'min_cpc_rate', 0.05));
+$min_cpm_rate = max(0.0, (float) get_ad_setting($db, 'min_cpm_rate', 1.00));
+
+$hasCampaignTypeColumn = ad_table_has_column($db, 'user_advertisements', 'campaign_type');
+
+if ($hasCampaignTypeColumn) {
+    $targetedFinancialExpression = "CASE WHEN ua.campaign_type IN ('cpc','cpm') THEN ua.total_spent ELSE (ua.cost_paid + ua.premium_cost) END";
+    $campaignFinancialExpression = "CASE WHEN campaign_type IN ('cpc','cpm') THEN total_spent ELSE (cost_paid + premium_cost) END";
+    $performanceCampaignsSelect = "SUM(CASE WHEN campaign_type IN ('cpc','cpm') THEN 1 ELSE 0 END) AS performance_campaigns";
+    $remainingBudgetSelect = "COALESCE(SUM(CASE WHEN campaign_type IN ('cpc','cpm') THEN budget_remaining ELSE 0 END), 0) AS remaining_budget";
+} else {
+    $targetedFinancialExpression = '(ua.cost_paid + ua.premium_cost)';
+    $campaignFinancialExpression = '(cost_paid + premium_cost)';
+    $performanceCampaignsSelect = '0 AS performance_campaigns';
+    $remainingBudgetSelect = '0 AS remaining_budget';
+
+    $schema_warnings[] = 'The database schema is missing the <code>campaign_type</code> column on <code>user_advertisements</code>. Performance campaign metrics are shown using legacy totals only. Please run the latest migrations to unlock full analytics.';
+}
 
 $spacesQuery = "SELECT
         ads.*,
         COALESCE(SUM(CASE WHEN ua.status = 'active' THEN 1 ELSE 0 END), 0) AS targeted_active,
         COALESCE(SUM(ua.impression_count), 0) AS targeted_impressions,
         COALESCE(SUM(ua.click_count), 0) AS targeted_clicks,
-        COALESCE(SUM($financialExpression), 0) AS targeted_spend
+        COALESCE(SUM($targetedFinancialExpression), 0) AS targeted_spend
     FROM ad_spaces ads
     LEFT JOIN user_advertisements ua
         ON ua.target_space_id = ads.space_id
@@ -103,7 +166,7 @@ $generalMetricsStmt = $db->query("SELECT
         COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) AS active_campaigns,
         COALESCE(SUM(impression_count), 0) AS impressions,
         COALESCE(SUM(click_count), 0) AS clicks,
-        COALESCE(SUM($financialExpression), 0) AS spend
+        COALESCE(SUM($campaignFinancialExpression), 0) AS spend
     FROM user_advertisements
     WHERE placement_type = 'general'
     GROUP BY ad_type, COALESCE(target_width, 0), COALESCE(target_height, 0)");
@@ -167,16 +230,20 @@ foreach ($ad_spaces as &$space) {
 }
 unset($space);
 
-$campaignStatsStmt = $db->query("SELECT
-        COUNT(*) AS total_campaigns,
-        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_campaigns,
-        SUM(CASE WHEN placement_type = 'general' THEN 1 ELSE 0 END) AS general_campaigns,
-        SUM(CASE WHEN campaign_type IN ('cpc','cpm') THEN 1 ELSE 0 END) AS performance_campaigns,
-        COALESCE(SUM(impression_count), 0) AS impressions,
-        COALESCE(SUM(click_count), 0) AS clicks,
-        COALESCE(SUM($financialExpression), 0) AS spend,
-        COALESCE(SUM(CASE WHEN campaign_type IN ('cpc','cpm') THEN budget_remaining ELSE 0 END), 0) AS remaining_budget
-    FROM user_advertisements");
+$campaignStatsSelects = [
+    'COUNT(*) AS total_campaigns',
+    "SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_campaigns",
+    "SUM(CASE WHEN placement_type = 'general' THEN 1 ELSE 0 END) AS general_campaigns",
+    $performanceCampaignsSelect,
+    'COALESCE(SUM(impression_count), 0) AS impressions',
+    'COALESCE(SUM(click_count), 0) AS clicks',
+    "COALESCE(SUM($campaignFinancialExpression), 0) AS spend",
+    $remainingBudgetSelect,
+];
+
+$campaignStatsStmt = $db->query('SELECT
+        ' . implode(",\n        ", $campaignStatsSelects) . '
+    FROM user_advertisements');
 $campaignStats = $campaignStatsStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
 $totalCampaigns = (int) ($campaignStats['total_campaigns'] ?? 0);
@@ -259,6 +326,44 @@ include 'includes/admin_header.php';
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             <?php endif; ?>
+
+            <?php if (!empty($schema_warnings)): ?>
+                <?php foreach ($schema_warnings as $warning): ?>
+                    <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                        <?php echo $warning; ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+                        <div>
+                            <h5 class="card-title mb-1">Performance Campaign Rate Floors</h5>
+                            <p class="text-muted small mb-0">Set the minimum bids allowed for CPC and CPM campaigns to prevent unfair pricing.</p>
+                        </div>
+                        <span class="badge bg-primary-subtle text-primary"><i class="fas fa-gavel me-1"></i>Bid Controls</span>
+                    </div>
+                    <form method="post" class="row g-3 align-items-end">
+                        <input type="hidden" name="action" value="update_min_rates">
+                        <div class="col-md-6">
+                            <label class="form-label">Minimum CPC Rate ($)</label>
+                            <input type="number" step="0.0001" min="0" name="min_cpc_rate" class="form-control" value="<?php echo htmlspecialchars(number_format($min_cpc_rate, 4, '.', '')); ?>">
+                            <small class="text-muted">Applied to every pay-per-click campaign.</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Minimum CPM Rate ($)</label>
+                            <input type="number" step="0.0001" min="0" name="min_cpm_rate" class="form-control" value="<?php echo htmlspecialchars(number_format($min_cpm_rate, 4, '.', '')); ?>">
+                            <small class="text-muted">Charged per 1,000 impressions.</small>
+                        </div>
+                        <div class="col-12 d-flex justify-content-between align-items-center">
+                            <div class="text-muted small"><i class="fas fa-info-circle me-1"></i>Current floors: CPC $<?php echo format_ad_rate($min_cpc_rate); ?> · CPM $<?php echo format_ad_rate($min_cpm_rate); ?>. Higher bids automatically receive more rotation priority.</div>
+                            <button type="submit" class="btn btn-primary">Save Minimum Rates</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
 
             <div class="row mb-4 g-3">
                 <div class="col-xl-3 col-md-6">
