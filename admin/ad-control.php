@@ -143,8 +143,7 @@ if ($hasCampaignTypeColumn) {
     $schema_warnings[] = 'The database schema is missing the <code>campaign_type</code> column on <code>user_advertisements</code>. Performance campaign metrics are shown using legacy totals only. Please run the latest migrations to unlock full analytics.';
 }
 
-$spacesQuery = "SELECT
-        ads.*,
+$spacesQuery = "SELECT DISTINCT ads.*,
         COALESCE(SUM(CASE WHEN ua.status = 'active' THEN 1 ELSE 0 END), 0) AS targeted_active,
         COALESCE(SUM(ua.impression_count), 0) AS targeted_impressions,
         COALESCE(SUM(ua.click_count), 0) AS targeted_clicks,
@@ -592,6 +591,11 @@ include 'includes/admin_header.php';
             return;
         }
 
+        // Destroy existing chart instance if it exists
+        if (window.topSpacesChart) {
+            window.topSpacesChart.destroy();
+        }
+
         const labels = <?php echo json_encode($topSpaceLabels); ?>;
         if (!labels.length) {
             chartElement.style.display = 'none';
@@ -601,7 +605,7 @@ include 'includes/admin_header.php';
         const clicks = <?php echo json_encode($topSpaceClicks); ?>;
         const impressions = <?php echo json_encode($topSpaceImpressions); ?>;
 
-        new Chart(chartElement.getContext('2d'), {
+        window.topSpacesChart = new Chart(chartElement.getContext('2d'), {
             type: 'bar',
             data: {
                 labels,
